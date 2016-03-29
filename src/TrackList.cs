@@ -6,8 +6,6 @@ using System.Collections.Generic;
 namespace MusicBeePlugin
 {
     using System.Diagnostics;
-    using System.IO;
-    using System.Runtime.InteropServices;
     using static Plugin;
 
     public class TrackList : IPlaylist
@@ -53,17 +51,12 @@ namespace MusicBeePlugin
         private int idCounter = 1;
         private MusicBeeRevisionManager revisionManager;
 
+
         public string[] Files { get { return files; } }
 
         public TrackList()
         {
-            if (mbApi.Library_QueryFilesEx("", ref files)) {
-                foreach (var file in files) {
-                    Add(file);
-                }
-            } else {
-                throw new Exception("Unable to get MusicBee library");
-            }
+            Reset();
         }
 
         private void Add(string filename)
@@ -80,6 +73,8 @@ namespace MusicBeePlugin
                 foreach(var file in files) {
                     Add(file);
                 }
+            } else {
+                throw new Exception("Unable to get MusicBee library");
             }
         }
 

@@ -14,6 +14,7 @@ namespace MusicBeePlugin
         public ushort serverPort;
         public List<string> artworkPatterns;
         public AudioStream.TranscodeOptions transcode;
+        public string daapFields;
     }
 
     public partial class Plugin
@@ -123,6 +124,9 @@ namespace MusicBeePlugin
                         replayGainMode = ReplayGainMode.Off
                     };
 
+                    // iTunes 12
+                    settings.daapFields = "dmap.itemid,dmap.itemname,dmap.itemkind,dmap.persistentid,daap.songalbum,daap.songgrouping,daap.songartist,daap.songalbumartist,daap.songbitrate,daap.songbeatsperminute,daap.songcomment,daap.songcodectype,daap.songcodecsubtype,daap.songcompilation,daap.songcomposer,daap.songdateadded,daap.songdatemodified,daap.songdisccount,daap.songdiscnumber,daap.songdisabled,daap.songeqpreset,daap.songformat,daap.songgenre,daap.songdescription,daap.songrelativevolume,daap.songsamplerate,daap.songsize,daap.songstarttime,daap.songstoptime,daap.songtime,daap.songtrackcount,daap.songtracknumber,daap.songuserrating,daap.songyear,daap.songdatakind,daap.songdataurl,daap.songcontentrating,com.apple.itunes.norm-volume,com.apple.itunes.itms-songid,com.apple.itunes.itms-artistid,com.apple.itunes.itms-playlistid,com.apple.itunes.itms-composerid,com.apple.itunes.itms-genreid,com.apple.itunes.itms-storefrontid,com.apple.itunes.has-videodaap.songcategory,daap.songextradata,daap.songcontentdescription,daap.songlongcontentdescription,com.apple.itunes.is-podcast,com.apple.itunes.mediakind,com.apple.itunes.extended-media-kind,com.apple.itunes.series-name,com.apple.itunes.episode-num-str,com.apple.itunes.episode-sort,com.apple.itunes.season-num,daap.songgapless,com.apple.itunes.gapless-enc-del,com.apple.itunes.gapless-heur,com.apple.itunes.gapless-enc-dr,com.apple.itunes.gapless-dur,com.apple.itunes.gapless-resy,com.apple.itunes.content-rating";
+
                     string dataPath = mbApi.Setting_GetPersistentStoragePath();
                     settings.artworkPatterns = new List<string>();
 
@@ -173,7 +177,7 @@ namespace MusicBeePlugin
         private void InitialiseServer()
         {
             mbTracks = new TrackList();
-            db = new DAAP.MusicBeeDatabase(settings.serverName);
+            db = new DAAP.MusicBeeDatabase(settings.serverName, settings.daapFields);
             revisionManager = new MusicBeeRevisionManager(db);
             mbTracks.RevisionManager = revisionManager;
 

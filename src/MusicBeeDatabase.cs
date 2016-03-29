@@ -16,10 +16,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-
-using System;
-using System.Net;
-using System.IO;
+ 
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -38,6 +35,9 @@ namespace DAAP
 
         private TrackList tracks;
         private List<MusicBeePlaylist> playlists = new List<MusicBeePlaylist>();
+
+        private byte[] cachedContentNodes;
+        private string fieldsInCachedNodes;
         
         public int Id
         {
@@ -68,24 +68,38 @@ namespace DAAP
             this.id = nextid++;
         }
 
-        public MusicBeeDatabase(string name) : this()
+        public MusicBeeDatabase(string name, string fields) : this()
         {
             this.Name = name;
             this.tracks = mbTracks;
+            this.fieldsInCachedNodes = fields;
 
             UpdatePlaylists();
+            CacheContentNodes(fieldsInCachedNodes);
         }
-        
+        private byte[] CacheContentNodes(string fields)
+        {
+            lock (tracks) {
+                ContentNode parentNode = ToTracksNode(fields.Split(','), new int[] { });
+                cachedContentNodes = ContentWriter.Write(ContentCodeBag.Default, parentNode);
+            }
+
+            return cachedContentNodes;
+        }
+
+
         internal void Reset()
         {
             UpdatePlaylists();
             tracks.Reset();
+            CacheContentNodes(fieldsInCachedNodes);
         }
 
         public void Update(string[] added, string[] removed)
         {
             UpdatePlaylists();
             tracks.Update(added, removed);
+            CacheContentNodes(fieldsInCachedNodes);
         }
 
         public void UpdatePlaylists()
@@ -209,6 +223,18 @@ namespace DAAP
         private bool IsUpdateResponse(ContentNode node)
         {
             return node.Name == "dmap.updateresponse";
+        }
+        
+        internal byte[] ToTracksNodeBytes(string fields, int[] deletedIds)
+        {
+            if (deletedIds.Length == 0 && fields == fieldsInCachedNodes) {
+                lock (tracks) {
+                    return cachedContentNodes;
+                }
+            } else {
+                ContentNode parentNode = ToTracksNode(fields.Split(','), deletedIds);
+                return ContentWriter.Write(ContentCodeBag.Default, parentNode);
+            }
         }
     }
 }
