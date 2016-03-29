@@ -757,9 +757,8 @@ namespace DAAP {
                 if (delta > 0) {
                     deletedIds = revmgr.GetDeletedIds(clientRev - delta);
                 }
-
-                ContentNode node = curdb.ToTracksNode(query["meta"].Split(','), deletedIds);
-                ws.WriteResponse(client, node);
+                
+                ws.WriteResponse(client, HttpStatusCode.OK, curdb.ToTracksNodeBytes(query["meta"], deletedIds));
             } else if (dbTrackRegex.IsMatch(path)) {
                 Match match = dbTrackRegex.Match(path);
                 int dbid = Int32.Parse(match.Groups[1].Value);
@@ -837,7 +836,7 @@ namespace DAAP {
                     ws.WriteResponse(client, GetUpdateNode(retrev));
                 }
             } else {
-                ws.WriteResponse(client, HttpStatusCode.Forbidden, "GO AWAY");
+                ws.WriteResponse(client, HttpStatusCode.Forbidden, "");
             }
 
             return true;

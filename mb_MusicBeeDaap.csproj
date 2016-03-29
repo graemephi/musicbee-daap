@@ -91,16 +91,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\daap-sharp\src\AuthenticationException.cs" />
-    <Compile Include="src\daap-sharp\src\BrokenMD5.cs" />
     <Compile Include="src\daap-sharp\src\ContentCodeBag.cs" />
-    <Compile Include="src\daap-sharp\src\ContentFetcher.cs" />
     <Compile Include="src\daap-sharp\src\ContentParser.cs" />
     <Compile Include="src\daap-sharp\src\ContentWriter.cs" />
-    <Compile Include="src\daap-sharp\src\Hasher.cs" />
     <Compile Include="src\daap-sharp\src\LoginException.cs" />
     <Compile Include="src\daap-sharp\src\Server.cs" />
     <Compile Include="src\daap-sharp\src\ServerInfo.cs" />
-    <Compile Include="src\daap-sharp\src\ServiceLocator.cs" />
     <Compile Include="src\daap-sharp\src\Track.cs" />
     <Compile Include="src\daap-sharp\src\User.cs" />
     <Compile Include="src\daap-sharp\src\Utility.cs" />
