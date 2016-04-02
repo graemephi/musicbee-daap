@@ -219,7 +219,7 @@ public class Artwork
             }
         } else {
             // Sometimes GetArtworkEx fails...
-            foreach (var rawPattern in Plugin.settings.artworkPatterns) {
+            foreach (var rawPattern in Plugin.artworkPatterns) {
                 string pattern = rawPattern.Replace("<Filename>", Path.GetFileNameWithoutExtension(file));
 
                 // ...if there is embedded artwork, GetArtworkEx does not fail

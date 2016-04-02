@@ -34,7 +34,7 @@ using MusicBeePlugin;
 
 namespace DAAP {
 
-    internal delegate bool WebHandler (Socket client, string user, string path, NameValueCollection query, int range);
+    internal delegate bool WebHandler(Socket client, string userAgent, string user, string path, NameValueCollection query, int range);
 
     internal class WebServer {
 
@@ -109,7 +109,7 @@ namespace DAAP {
         public void RemoveCredential(NetworkCredential cred) {
             creds.Remove(cred);
         }
-        
+
         public void WriteResponse(Socket client, ContentNode node) {
             WriteResponse(client, HttpStatusCode.OK,
                            ContentWriter.Write(ContentCodeBag.Default, node));
@@ -151,64 +151,64 @@ namespace DAAP {
             }
         }
 
-        public void WriteResponseStream (Socket client, Stream response, long len) {
-            WriteResponseStream (client, response, len, -1);
+        public void WriteResponseStream(Socket client, Stream response, long len) {
+            WriteResponseStream(client, response, len, -1);
         }
 
-        public void WriteResponseStream (Socket client, Stream response, long len, long offset, string contentType = null) {
-            using (BinaryWriter writer = new BinaryWriter (new NetworkStream (client, false))) {
+        public void WriteResponseStream(Socket client, Stream response, long len, long offset, string contentType = null) {
+            using (BinaryWriter writer = new BinaryWriter(new NetworkStream(client, false))) {
 
                 if (offset > 0) {
-                    writer.Write (Encoding.UTF8.GetBytes ("HTTP/1.1 206 Partial Content\r\n"));
-                    writer.Write (Encoding.UTF8.GetBytes (String.Format ("Content-Range: bytes {0}-{1}/{2}\r\n",
+                    writer.Write(Encoding.UTF8.GetBytes("HTTP/1.1 206 Partial Content\r\n"));
+                    writer.Write(Encoding.UTF8.GetBytes(String.Format("Content-Range: bytes {0}-{1}/{2}\r\n",
                                                                          offset, len, len + 1)));
-                    writer.Write (Encoding.UTF8.GetBytes ("Accept-Range: bytes\r\n"));
+                    writer.Write(Encoding.UTF8.GetBytes("Accept-Range: bytes\r\n"));
                     len = len - offset;
                 } else {
-                    writer.Write (Encoding.UTF8.GetBytes ("HTTP/1.1 200 OK\r\n"));
+                    writer.Write(Encoding.UTF8.GetBytes("HTTP/1.1 200 OK\r\n"));
                 }
 
-                if (contentType != null) {                    
-                    writer.Write (Encoding.UTF8.GetBytes (String.Format("Content-Type: {0}\r\n", contentType)));
+                if (contentType != null) {
+                    writer.Write(Encoding.UTF8.GetBytes(String.Format("Content-Type: {0}\r\n", contentType)));
                 }
 
-                writer.Write (Encoding.UTF8.GetBytes (String.Format ("Content-Length: {0}\r\n", len)));
-                writer.Write (Encoding.UTF8.GetBytes ("\r\n"));
+                writer.Write(Encoding.UTF8.GetBytes(String.Format("Content-Length: {0}\r\n", len)));
+                writer.Write(Encoding.UTF8.GetBytes("\r\n"));
 
-                using (BinaryReader reader = new BinaryReader (response)) {
+                using (BinaryReader reader = new BinaryReader(response)) {
                     if (offset > 0) {
-                        reader.BaseStream.Seek (offset, SeekOrigin.Begin);
+                        reader.BaseStream.Seek(offset, SeekOrigin.Begin);
                     }
 
                     long count = 0;
                     while (count < len) {
-                        byte[] buf = reader.ReadBytes (Math.Min (ChunkLength, (int) len - (int) count));
+                        byte[] buf = reader.ReadBytes(Math.Min(ChunkLength, (int)len - (int)count));
                         if (buf.Length == 0) {
                             break;
                         }
 
-                        writer.Write (buf);
+                        writer.Write(buf);
                         count += buf.Length;
                     }
                 }
             }
         }
 
-        public void WriteAccessDenied (Socket client) {
+        public void WriteAccessDenied(Socket client) {
             string msg = "Authorization Required";
 
-            using (BinaryWriter writer = new BinaryWriter (new NetworkStream (client, false))) {
-                writer.Write (Encoding.UTF8.GetBytes ("HTTP/1.1 401 Denied\r\n"));
-                writer.Write (Encoding.UTF8.GetBytes (String.Format ("WWW-Authenticate: Basic realm=\"{0}\"",
+            using (BinaryWriter writer = new BinaryWriter(new NetworkStream(client, false))) {
+                writer.Write(Encoding.UTF8.GetBytes("HTTP/1.1 401 Denied\r\n"));
+                writer.Write(Encoding.UTF8.GetBytes(String.Format("WWW-Authenticate: Basic realm=\"{0}\"",
                                                                      realm)));
-                writer.Write (Encoding.UTF8.GetBytes ("Content-Type: text/plain\r\n"));
-                writer.Write (Encoding.UTF8.GetBytes (String.Format ("Content-Length: {0}\r\n", msg.Length)));
-                writer.Write (Encoding.UTF8.GetBytes ("\r\n"));
-                writer.Write (msg);
+                writer.Write(Encoding.UTF8.GetBytes("Content-Type: text/plain\r\n"));
+                writer.Write(Encoding.UTF8.GetBytes(String.Format("Content-Length: {0}\r\n", msg.Length)));
+                writer.Write(Encoding.UTF8.GetBytes("\r\n"));
+                writer.Write(msg);
             }
         }
 
-        private bool IsValidAuth (string user, string pass) {
+        private bool IsValidAuth(string user, string pass) {
             if (authMethod == AuthenticationMethod.None)
                 return true;
 
@@ -222,97 +222,111 @@ namespace DAAP {
             return false;
         }
 
-        private bool HandleRequest (Socket client) {
+        private bool HandleRequest(Socket client) {
 
             if (!client.Connected)
                 return false;
 
             bool ret = true;
 
-            using (StreamReader reader = new StreamReader (new NetworkStream (client, false))) {
+            using (StreamReader reader = new StreamReader(new NetworkStream(client, false))) {
 
-                string request = reader.ReadLine ();
+                string request = reader.ReadLine();
                 if (request == null)
                     return false;
 
                 string line = null;
                 string user = null;
                 string password = null;
+                string userAgent = null;
                 int range = -1;
 
                 // read the rest of the request
                 do {
-                    line = reader.ReadLine ();
+                    line = reader.ReadLine();
 
-                    if (line == "Connection: close") {
+                    if (line == null) {
+                        break;
+                    } else if (line == "Connection: close") {
                         ret = false;
-                    } else if (line != null && line.StartsWith ("Authorization: Basic")) {
-                        string[] splitLine = line.Split (' ');
+                    } else if (line.StartsWith("Authorization: Basic")) {
+                        string[] splitLine = line.Split(' ');
 
                         if (splitLine.Length != 3)
                             continue;
 
-                        string userpass = Encoding.UTF8.GetString (Convert.FromBase64String (splitLine[2]));
+                        string userpass = Encoding.UTF8.GetString(Convert.FromBase64String(splitLine[2]));
 
-                        string[] splitUserPass = userpass.Split (new char[] {':'}, 2);
+                        string[] splitUserPass = userpass.Split(new char[] { ':' }, 2);
                         user = splitUserPass[0];
                         password = splitUserPass[1];
-                    } else if (line != null && line.StartsWith ("Range: ")) {
+                    } else if (line.StartsWith("Range: ")) {
                         // we currently expect 'Range: bytes=<offset>-'
-                        string[] splitLine = line.Split ('=');
+                        string[] splitLine = line.Split('=');
 
                         if (splitLine.Length != 2)
                             continue;
 
                         string rangestr = splitLine[1];
-                        if (!rangestr.EndsWith ("-"))
+                        if (!rangestr.EndsWith("-"))
                             continue;
 
                         try {
-                            range = Int32.Parse (rangestr.Substring (0, rangestr.Length - 1));
+                            range = Int32.Parse(rangestr.Substring(0, rangestr.Length - 1));
                         } catch (FormatException) {
                         }
+                    } else if (line.StartsWith("User-Agent: ")) {
+                        const int userAgentOffsetIndex = 12;
+                        int platformIndex = 0;
+
+                        do {
+                            platformIndex = line.IndexOf('(', userAgentOffsetIndex + platformIndex);
+                        } while (platformIndex == -1 || line[platformIndex - 1] != ' ');
+
+                        if (platformIndex > userAgentOffsetIndex && platformIndex < line.Length) {
+                            userAgent = line.Substring(userAgentOffsetIndex, platformIndex - userAgentOffsetIndex - 1);
+                        }
                     }
-                } while (line != String.Empty && line != null);
+                } while (line != String.Empty);
 
 
-                string[] splitRequest = request.Split ();
+                string[] splitRequest = request.Split();
                 if (splitRequest.Length < 3) {
-                    WriteResponse (client, HttpStatusCode.BadRequest, "Bad Request");
+                    WriteResponse(client, HttpStatusCode.BadRequest, "Bad Request");
                 } else {
                     try {
                         string path = splitRequest[1];
-                        if (!path.StartsWith ("daap://")) {
-                            path = String.Format ("daap://localhost{0}", path);
+                        if (!path.StartsWith("daap://")) {
+                            path = String.Format("daap://localhost{0}", path);
                         }
 
-                        Uri uri = new Uri (path);
-                        NameValueCollection query = new NameValueCollection ();
+                        Uri uri = new Uri(path);
+                        NameValueCollection query = new NameValueCollection();
 
                         if (uri.Query != null && uri.Query != String.Empty) {
-                            string[] splitquery = uri.Query.Substring (1).Split ('&');
+                            string[] splitquery = uri.Query.Substring(1).Split('&');
 
                             foreach (string queryItem in splitquery) {
                                 if (queryItem == String.Empty)
                                     continue;
 
-                                string[] splitQueryItem = queryItem.Split ('=');
+                                string[] splitQueryItem = queryItem.Split('=');
                                 query[splitQueryItem[0]] = splitQueryItem[1];
                             }
                         }
 
                         if (authMethod != AuthenticationMethod.None && uri.AbsolutePath == "/login" &&
-                            !IsValidAuth (user, password)) {
-                            WriteAccessDenied (client);
+                            !IsValidAuth(user, password)) {
+                            WriteAccessDenied(client);
                             return true;
                         }
 
-                        return handler (client, user, uri.AbsolutePath, query, range);
+                        return handler(client, userAgent, user, uri.AbsolutePath, query, range);
                     } catch (IOException) {
                         ret = false;
                     } catch (Exception e) {
                         ret = false;
-                        Console.Error.WriteLine ("Trouble handling request {0}: {1}", splitRequest[1], e);
+                        Console.Error.WriteLine("Trouble handling request {0}: {1}", splitRequest[1], e);
                     }
                 }
             }
@@ -320,30 +334,30 @@ namespace DAAP {
             return ret;
         }
 
-        private void HandleConnection (object o) {
-            Socket client = (Socket) o;
+        private void HandleConnection(object o) {
+            Socket client = (Socket)o;
 
             try {
-                while (HandleRequest (client)) { }
+                while (HandleRequest(client)) { }
             } catch (IOException) {
                 // ignore
             } catch (Exception e) {
-                Console.Error.WriteLine ("Error handling request: " + e);
+                Console.Error.WriteLine("Error handling request: " + e);
             } finally {
-                clients.Remove (client);
-                client.Close ();
+                clients.Remove(client);
+                client.Close();
             }
         }
 
-        private void ServerLoop () {
+        private void ServerLoop() {
             while (true) {
                 try {
                     if (!running)
                         break;
 
-                    Socket client = server.Accept ();
-                    clients.Add (client);
-                    ThreadPool.QueueUserWorkItem (HandleConnection, client);
+                    Socket client = server.Accept();
+                    clients.Add(client);
+                    ThreadPool.QueueUserWorkItem(HandleConnection, client);
                 } catch (SocketException) {
                     break;
                 }
@@ -353,7 +367,7 @@ namespace DAAP {
 
     internal class RevisionManager {
 
-        private Dictionary<int, List<MusicBeeDatabase>> revisions = new Dictionary<int, List<MusicBeeDatabase>> ();
+        private Dictionary<int, List<MusicBeeDatabase>> revisions = new Dictionary<int, List<MusicBeeDatabase>>();
         private int current = 1;
         private int limit = 3;
 
@@ -366,7 +380,7 @@ namespace DAAP {
             set { limit = value; }
         }
 
-        public void AddRevision (List<MusicBeeDatabase> databases) {
+        public void AddRevision(List<MusicBeeDatabase> databases) {
             revisions[++current] = databases;
 
             if (revisions.Keys.Count > limit) {
@@ -379,23 +393,23 @@ namespace DAAP {
                     }
                 }
 
-                RemoveRevision (oldest);
+                RemoveRevision(oldest);
             }
         }
 
-        public void RemoveRevision (int rev) {
-            revisions.Remove (rev);
+        public void RemoveRevision(int rev) {
+            revisions.Remove(rev);
         }
 
-        public List<MusicBeeDatabase> GetRevision (int rev) {
+        public List<MusicBeeDatabase> GetRevision(int rev) {
             if (rev == 0)
                 return revisions[current];
             else
                 return revisions[rev];
         }
 
-        public MusicBeeDatabase GetDatabase (int rev, int id) {
-            List<MusicBeeDatabase> dbs = GetRevision (rev);
+        public MusicBeeDatabase GetDatabase(int rev, int id) {
+            List<MusicBeeDatabase> dbs = GetRevision(rev);
 
             if (dbs == null)
                 return null;
@@ -432,7 +446,7 @@ namespace DAAP {
             get { return track; }
         }
 
-        public TrackRequestedArgs (string user, IPAddress host, MusicBeeDatabase db, Track track) {
+        public TrackRequestedArgs(string user, IPAddress host, MusicBeeDatabase db, Track track) {
             this.user = user;
             this.host = host;
             this.db = db;
@@ -440,7 +454,14 @@ namespace DAAP {
         }
     }
 
+    public class DatabaseRequestedArgs : EventArgs
+    {
+        public string userAgent;
+        public string daapMeta;
+    }
+    
     public delegate void TrackRequestedHandler (object o, TrackRequestedArgs args);
+    public delegate void DatabaseRequestedHandler(object o, DatabaseRequestedArgs args);
 
     public class Server {
 
@@ -470,6 +491,7 @@ namespace DAAP {
 
         public event EventHandler Collision;
         public event TrackRequestedHandler TrackRequested;
+        public event DatabaseRequestedHandler DatabaseRequested;
         public event UserHandler UserLogin;
         public event UserHandler UserLogout;
 
@@ -598,7 +620,7 @@ namespace DAAP {
 
                 zc_service.TxtRecord.Add ("txtvers", "1");
                 zc_service.Response += OnRegisterServiceResponse;
-                zc_service.Register ();
+                zc_service.Register();
             }
         }
 
@@ -657,7 +679,7 @@ namespace DAAP {
             }
         }
 
-        internal bool OnHandleRequest (Socket client, string username, string path, NameValueCollection query, int range) {
+        internal bool OnHandleRequest (Socket client, string userAgent, string username, string path, NameValueCollection query, int range) {
             System.Diagnostics.Debug.WriteLine(path);
 
             int session = 0;
@@ -745,6 +767,7 @@ namespace DAAP {
                 }
             } else if (dbItemsRegex.IsMatch(path)) {
                 int dbid = Int32.Parse(dbItemsRegex.Match(path).Groups[1].Value);
+                string daapMeta = query["meta"];
 
                 MusicBeeDatabase curdb = (MusicBeeDatabase)databases[0];
                 if (curdb == null || curdb.Id != dbid) {
@@ -757,8 +780,14 @@ namespace DAAP {
                 if (delta > 0) {
                     deletedIds = revmgr.GetDeletedIds(clientRev - delta);
                 }
+
+                try {
+                    if (DatabaseRequested != null) {
+                        DatabaseRequested(this, new DatabaseRequestedArgs { userAgent = userAgent, daapMeta = daapMeta });
+                    }
+                } catch { }
                 
-                ws.WriteResponse(client, HttpStatusCode.OK, curdb.ToTracksNodeBytes(query["meta"], deletedIds));
+                ws.WriteResponse(client, HttpStatusCode.OK, curdb.ToTracksNodeBytes(daapMeta, deletedIds));
             } else if (dbTrackRegex.IsMatch(path)) {
                 Match match = dbTrackRegex.Match(path);
                 int dbid = Int32.Parse(match.Groups[1].Value);

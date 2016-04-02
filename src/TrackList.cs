@@ -94,20 +94,6 @@ namespace MusicBeePlugin
             }
         }
 
-        private string TrimToCharacter(string s, char c)
-        {
-            int index = 0;
-            while (index < s.Length) {
-                if (s[index] == c) {
-                    return s.Substring(0, index);
-                }
-
-                index++;
-            }
-
-            return s;
-        }
-
         public Track FileToTrack(string file, int id = 0)
         {
             if (id == 0) {
@@ -127,7 +113,7 @@ namespace MusicBeePlugin
                 result.Artwork = trackTags[ARTWORK];
 
                 if (trackTags[GENRE] != null) {
-                    trackTags[GENRE] = TrimToCharacter(trackTags[GENRE], ';');
+                    result.Genre = TrimToCharacter(trackTags[GENRE], ';');
                 }
 
                 int year, trackNumber, trackCount;

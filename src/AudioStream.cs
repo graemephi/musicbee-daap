@@ -11,10 +11,25 @@ namespace MusicBeePlugin
     {
         public class TranscodeOptions
         {
-            public bool usePcm;
-            public bool useMusicBeeSettings;
-            public bool enableDSP;
-            public Plugin.ReplayGainMode replayGainMode;
+            public bool usePCM = true;
+            public bool useMusicBeeSettings = false;
+            public bool enableDSP = false;
+            public Plugin.ReplayGainMode replayGainMode = Plugin.ReplayGainMode.Off;
+            public List<Plugin.FileCodec> formats = new List<Plugin.FileCodec> {
+                Plugin.FileCodec.Unknown,
+                Plugin.FileCodec.Flac,
+                Plugin.FileCodec.Ogg,
+                Plugin.FileCodec.WavPack,
+                Plugin.FileCodec.Wma,
+                Plugin.FileCodec.Tak,
+                Plugin.FileCodec.Mpc,
+                Plugin.FileCodec.Asx,
+                Plugin.FileCodec.Pcm,
+                Plugin.FileCodec.Opus,
+                Plugin.FileCodec.Spx,
+                Plugin.FileCodec.Dsd,
+                Plugin.FileCodec.AacNoContainer
+            };
         }
 
         public class BASSStream : Stream
@@ -175,7 +190,6 @@ namespace MusicBeePlugin
                 if (disposing) {
                     BASS_StreamFree(handle);
                     handle = 0;
-
                 }
             }
 
@@ -208,7 +222,7 @@ namespace MusicBeePlugin
                 BASS_ChannelGetInfo(handle, out info);
                 
                 // If we're responsible for PCM conversion all indexing into the underlying stream must be doubled
-                convertFloatToPCM = FloatingPointBassStream && options.usePcm;
+                convertFloatToPCM = FloatingPointBassStream && options.usePCM;
 
                 if (convertFloatToPCM) {
                     pcmBuffer = new float[] { };
@@ -280,13 +294,6 @@ namespace MusicBeePlugin
                 return header.Length - offset;
             }
         }
-        private static HashSet<Plugin.FileCodec> transcodeFormats = new HashSet<Plugin.FileCodec>(new Plugin.FileCodec[] { Plugin.FileCodec.Unknown });
-
-        public static ICollection<Plugin.FileCodec> TranscodeFormats
-        {
-            get { return transcodeFormats; }
-            set { transcodeFormats = new HashSet<Plugin.FileCodec>(value); }
-        }
 
         public static Stream Open(string file)
         {
@@ -312,17 +319,6 @@ namespace MusicBeePlugin
             return result;
         }
 
-        public static void SetDirectStreamFormats(ICollection<Plugin.FileCodec> formats)
-        {
-            transcodeFormats = new HashSet<Plugin.FileCodec>();
-
-            foreach (Plugin.FileCodec format in Enum.GetValues(typeof(Plugin.FileCodec))) {
-                if (!formats.Contains(format)) {
-                    transcodeFormats.Add(format);
-                }
-            }
-        }
-
         private static string GetExtension(string file)
         {
             string ext = Path.GetExtension(file);
@@ -335,10 +331,10 @@ namespace MusicBeePlugin
         {
             Plugin.FileCodec codec = GetFileCodec(ext);
 
-            return transcodeFormats.Contains(codec);
+            return Plugin.settings.transcode.formats.Contains(codec);
         }
 
-        private static Plugin.FileCodec GetFileCodec(string ext)
+        internal static Plugin.FileCodec GetFileCodec(string ext)
         {
             Plugin.FileCodec result = Plugin.FileCodec.Unknown;
 
@@ -367,7 +363,8 @@ namespace MusicBeePlugin
                 case "ogg": {
                     result = Plugin.FileCodec.Ogg;
                 } break;
-                case "wv": {
+                case "wv":
+                case "wavpack": {
                     result = Plugin.FileCodec.WavPack;
                 } break;
                 case "wma": {

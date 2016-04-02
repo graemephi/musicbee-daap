@@ -1,25 +1,5 @@
-﻿/*
- * daap-sharp
- * Copyright (C) 2005  James Willcox <snorp@snorp.net>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- */
- 
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 
 using static MusicBeePlugin.Plugin;
 using MusicBeePlugin;
@@ -54,14 +34,6 @@ namespace DAAP
                 name = value;
             }
         }
-
-        public IList<MusicBeePlaylist> Playlists
-        {
-            get
-            {
-                return new ReadOnlyCollection<MusicBeePlaylist>(playlists);
-            }
-        }
         
         private MusicBeeDatabase()
         {
@@ -72,16 +44,17 @@ namespace DAAP
         {
             this.Name = name;
             this.tracks = mbTracks;
-            this.fieldsInCachedNodes = fields;
 
             UpdatePlaylists();
-            CacheContentNodes(fieldsInCachedNodes);
+            CacheContentNodes(fields);
         }
-        private byte[] CacheContentNodes(string fields)
+
+        public byte[] CacheContentNodes(string fields)
         {
             lock (tracks) {
                 ContentNode parentNode = ToTracksNode(fields.Split(','), new int[] { });
                 cachedContentNodes = ContentWriter.Write(ContentCodeBag.Default, parentNode);
+                fieldsInCachedNodes = fields;
             }
 
             return cachedContentNodes;

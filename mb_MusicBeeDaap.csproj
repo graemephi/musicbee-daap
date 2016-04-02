@@ -100,6 +100,12 @@
     <Compile Include="src\daap-sharp\src\Track.cs" />
     <Compile Include="src\daap-sharp\src\User.cs" />
     <Compile Include="src\daap-sharp\src\Utility.cs" />
+    <Compile Include="src\ConfigForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="src\ConfigForm.Designer.cs">
+      <DependentUpon>ConfigForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="src\Mono.Zeroconf\src\Mono.Zeroconf.Providers.Bonjour\Mono.Zeroconf.Providers.Bonjour\BrowseService.cs" />
     <Compile Include="src\Mono.Zeroconf\src\Mono.Zeroconf.Providers.Bonjour\Mono.Zeroconf.Providers.Bonjour\Native.cs" />
     <Compile Include="src\Mono.Zeroconf\src\Mono.Zeroconf.Providers.Bonjour\Mono.Zeroconf.Providers.Bonjour\RegisterService.cs" />
@@ -145,6 +151,9 @@
     <Compile Include="src\TrackList.cs" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="src\ConfigForm.resx">
+      <DependentUpon>ConfigForm.cs</DependentUpon>
+    </EmbeddedResource>
     <None Include="app.config" />
     <None Include="src\daap-sharp\AUTHORS" />
     <None Include="src\daap-sharp\ChangeLog" />

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Linq;
-using System.Runtime.InteropServices;
 
 using DAAP;
 
@@ -12,31 +11,6 @@ namespace MusicBeePlugin {
 
     public class MusicBeeRevisionManager
     {
-        private static class ThreadExecutionState
-        {
-            enum ExecutionState : uint
-            {
-                AwayModeRequired = 0x00000040,
-                Continous = 0x80000000,
-                DisplayRequired = 0x00000002,
-                SystemRequired = 0x00000001,
-                UserPresent = 0x00000004
-            }
-
-            [DllImport("kernel32.dll")]
-            private extern static ExecutionState SetThreadExecutionState(ExecutionState esFlags);
-
-            internal static void PreventSleep()
-            {
-                SetThreadExecutionState(ExecutionState.Continous | ExecutionState.SystemRequired);
-            }
-
-            internal static void AllowSleep()
-            {
-                SetThreadExecutionState(ExecutionState.Continous);
-            }
-        }
-
         private struct Revision
         {
             public int id;
@@ -87,8 +61,9 @@ namespace MusicBeePlugin {
                     }
                 }
             });
-
+            
             worker = new Thread(start);
+            worker.IsBackground = true;
             worker.Start();
         }
 
@@ -112,15 +87,7 @@ namespace MusicBeePlugin {
             lock (updateWaitHandle)
             {
                 if (clientRevision == currentRevision) {
-                    if (++numberOfOpenConnections == 1) {
-                        ThreadExecutionState.PreventSleep();
-                    }
-
                     Monitor.Wait(updateWaitHandle);
-
-                    if (--numberOfOpenConnections == 0) {
-                        ThreadExecutionState.AllowSleep();
-                    }
 
                     currentRevision = Current;
                 }
