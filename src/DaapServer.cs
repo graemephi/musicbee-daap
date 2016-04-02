@@ -11,7 +11,6 @@ using System.Xml.Serialization;
 
 
 // Todo: differentiate between port/bonjour start up error
-//       hook userlogin event to revisionmanager for open connections
 
 namespace MusicBeePlugin
 {
@@ -372,6 +371,9 @@ namespace MusicBeePlugin
                 server.UserLogin += OnLogin;
                 server.UserLogout += OnLogout;
             }
+
+            server.UserLogin += revisionManager.OnLogin;
+            server.UserLogout += revisionManager.OnLogout;
 
             server.AddDatabase(db);
             server.Start();

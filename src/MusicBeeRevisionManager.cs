@@ -35,7 +35,7 @@ namespace MusicBeePlugin {
         TimeSpan timeToWait = new TimeSpan(0, 0, 1);
         Thread worker;
 
-        volatile int numberOfOpenConnections = 0;
+        int numberOfOpenConnections = 0;
         object updateWaitHandle = new object();
 
         NotificationType receivedNotificationTypes = 0;
@@ -214,6 +214,16 @@ namespace MusicBeePlugin {
                 Clear();
                 Monitor.PulseAll(updateWaitHandle);
             }
+        }
+
+        internal void OnLogin(object o, UserArgs args)
+        {
+            numberOfOpenConnections++;
+        }
+
+        internal void OnLogout(object o, UserArgs args)
+        {
+            numberOfOpenConnections--;
         }
     }
 }
