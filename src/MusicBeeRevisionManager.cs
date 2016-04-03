@@ -38,7 +38,7 @@ namespace MusicBeePlugin {
         int numberOfOpenConnections = 0;
         object updateWaitHandle = new object();
 
-        NotificationType receivedNotificationTypes = 0;
+        NotificationType receivedNotificationTypes = NotificationType.None;
 
         public int Current {
             get { return (revisions.Count == 0) ? 2 : revisions.Peek().id; }
@@ -111,6 +111,7 @@ namespace MusicBeePlugin {
                         int addedId = musicBeeDatabase.GetIdOfTrack(file);
 
                         if (addedId != 0) {
+                            // Re-added tracks are zeroed in the revision history
                             foreach (Revision revision in revisions) {
                                 for (int index = 0; index < revision.removedIds.Length; index++) {
                                     int removedId = revision.removedIds[index];
@@ -125,7 +126,7 @@ namespace MusicBeePlugin {
                     }
                 }
 
-                if (receivedNotificationTypes.HasFlag(NotificationType.FileAdded | NotificationType.FileRemoved) && (added.Length > 0 || removed.Length > 0)) {
+                if (((receivedNotificationTypes & (NotificationType.FileAdded | NotificationType.FileRemoved)) != NotificationType.None) && (added.Length > 0 || removed.Length > 0)) {
                     if (numberOfOpenConnections == 0 && revisions.Count > 0) {
                         Revision lastRevision = revisions.Pop();
 
