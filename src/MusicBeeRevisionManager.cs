@@ -47,6 +47,7 @@ namespace MusicBeePlugin {
         public MusicBeeRevisionManager(MusicBeeDatabase db)
         {
             this.musicBeeDatabase = db;
+            db.tracks.RevisionManager = this;
 
             ThreadStart start = new ThreadStart(delegate {
                 while (true) {
@@ -218,12 +219,12 @@ namespace MusicBeePlugin {
 
         internal void OnLogin(object o, UserArgs args)
         {
-            numberOfOpenConnections++;
+            Interlocked.Increment(ref numberOfOpenConnections);
         }
 
         internal void OnLogout(object o, UserArgs args)
         {
-            numberOfOpenConnections--;
+            Interlocked.Decrement(ref numberOfOpenConnections);
         }
     }
 }
