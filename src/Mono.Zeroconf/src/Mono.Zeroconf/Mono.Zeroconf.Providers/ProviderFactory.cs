@@ -63,12 +63,10 @@ namespace Mono.Zeroconf.Providers
             {
                 return providers;
             }
-
-            List<IZeroconfProvider> providers_list = new List<IZeroconfProvider>();
+            
             IZeroconfProvider provider = new Bonjour.ZeroconfProvider();
             provider.Initialize();
-            providers_list.Add(provider);
-            providers = providers_list.ToArray();
+            providers = new IZeroconfProvider[] { provider };
 
             return providers;
         }

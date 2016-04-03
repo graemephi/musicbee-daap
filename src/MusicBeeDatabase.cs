@@ -13,7 +13,7 @@ namespace DAAP
         private int id;
         private string name;
 
-        private TrackList tracks;
+        internal TrackList tracks;
         private List<MusicBeePlaylist> playlists = new List<MusicBeePlaylist>();
 
         private byte[] cachedContentNodes;
@@ -49,17 +49,14 @@ namespace DAAP
             CacheContentNodes(fields);
         }
 
-        public byte[] CacheContentNodes(string fields)
+        public void CacheContentNodes(string fields)
         {
             lock (tracks) {
                 ContentNode parentNode = ToTracksNode(fields.Split(','), new int[] { });
                 cachedContentNodes = ContentWriter.Write(ContentCodeBag.Default, parentNode);
                 fieldsInCachedNodes = fields;
             }
-
-            return cachedContentNodes;
         }
-
 
         internal void Reset()
         {
@@ -201,9 +198,13 @@ namespace DAAP
         internal byte[] ToTracksNodeBytes(string fields, int[] deletedIds)
         {
             if (deletedIds.Length == 0 && fields == fieldsInCachedNodes) {
+                byte[] result = null;
+
                 lock (tracks) {
-                    return cachedContentNodes;
+                    result = cachedContentNodes;
                 }
+
+                return result;
             } else {
                 ContentNode parentNode = ToTracksNode(fields.Split(','), deletedIds);
                 return ContentWriter.Write(ContentCodeBag.Default, parentNode);

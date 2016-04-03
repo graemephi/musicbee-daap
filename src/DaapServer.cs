@@ -3,17 +3,24 @@ using MusicBeePlugin.src;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Windows.Forms;
+using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Serialization;
 
-
-// Todo: differentiate between port/bonjour start up error
-
 namespace MusicBeePlugin
 {
+    [Flags()]
+    enum PluginError
+    {
+        None = 0,
+        Initialising = 1,
+        PortTaken = 2,
+        BonjourNotFound = 4
+    }
+
     public class Settings
     {
         public string serverName = "MusicBee";
@@ -61,20 +68,21 @@ namespace MusicBeePlugin
         private const string SETTINGS_FILE = "MusicBeeDaap.xml";
 
         public static MusicBeeApiInterface mbApi;
+
         public static Settings settings = new Settings { };
+        public static string[] iTunesFormats = { "mp3", "aiff", "wave", "aac", "alac" };
+        public static List<string> artworkPatterns = new List<string>();
 
         private DAAP.Server server;
         private DAAP.MusicBeeDatabase db;
         private MusicBeeRevisionManager revisionManager;
-
         public static TrackList mbTracks;
 
-        private bool initialised = false;
+        private PluginError errors = PluginError.Initialising;
+
         private bool optimising = false;
         ConfigForm configForm;
 
-        public static string[] iTunesFormats = { "mp3", "aiff", "wave", "aac", "alac" };
-        public static List<string> artworkPatterns = new List<string>();
 
         private PluginInfo about = new PluginInfo();
         
@@ -104,11 +112,10 @@ namespace MusicBeePlugin
             // save any persistent settings in a sub-folder of this path
             string dataPath = mbApi.Setting_GetPersistentStoragePath();
 
-            if (initialised == false) {
-                MessageBox.Show("This plugin requires Apple's Bonjour.");
-            } else if (configForm == null) {
+             if (configForm == null) {
                 configForm = new ConfigForm(this);
                 configForm.SetFormSettings(settings);
+                configForm.SetMessages(errors);
 
                 configForm.FormClosed += delegate {
                     CancelOptimisation();
@@ -117,6 +124,7 @@ namespace MusicBeePlugin
 
                 configForm.Show();
             } else {
+                configForm.SetMessages(errors);
                 configForm.Focus();
             }
 
@@ -139,7 +147,7 @@ namespace MusicBeePlugin
             return updated;
         }
 
-        internal void ApplyAndSave(Settings newSettings)
+        internal async void ApplyAndSave(Settings newSettings)
         {
             bool settingsModified = false;
             bool serverRestartRequired = false;
@@ -171,22 +179,12 @@ namespace MusicBeePlugin
             
 
             if (settingsModified) {
-                Settings oldSettings = LoadSettings();
+                if (serverRestartRequired) {
+                    await RestartServer();
+                }
 
-                try {
-                    if (serverRestartRequired) {
-                        RestartServer();
-                    }
-
+                if (errors == PluginError.None) {
                     WriteSettings();
-                } catch {
-                    settings = oldSettings;
-
-                    if (configForm != null) {
-                        configForm.SetFormSettings(settings);
-                    }
-
-                    RestartServer();
                 }
             }
         }
@@ -287,60 +285,114 @@ namespace MusicBeePlugin
         // you need to set about.ReceiveNotificationFlags = PlayerEvents to receive all notifications, and not just the startup event
         public void ReceiveNotification(string sourceFileUrl, NotificationType type)
         {
-            if (type == NotificationType.PluginStartup && !initialised) {         
-                settings = LoadSettings();
-                
-                try {
-                    string dataPath = mbApi.Setting_GetPersistentStoragePath();
-                    using (XmlReader mbConfig = XmlReader.Create(Path.Combine(dataPath, "MusicBeeSettings.ini"), new XmlReaderSettings { IgnoreWhitespace = true })) {
-                        mbConfig.ReadToFollowing("TagArtworkScanFilter");
+            switch (type) {
+                case NotificationType.PluginStartup:
+                    settings = LoadSettings();
 
-                        using (XmlReader filterReader = mbConfig.ReadSubtree()) {
-                            while (filterReader.Read()) {
-                                if (filterReader.NodeType == XmlNodeType.Text && mbConfig.Value != "*.*") {
-                                    artworkPatterns.Add(mbConfig.Value);
+                    try {
+                        string dataPath = mbApi.Setting_GetPersistentStoragePath();
+                        using (XmlReader mbConfig = XmlReader.Create(Path.Combine(dataPath, "MusicBeeSettings.ini"), new XmlReaderSettings { IgnoreWhitespace = true })) {
+                            mbConfig.ReadToFollowing("TagArtworkScanFilter");
+
+                            using (XmlReader filterReader = mbConfig.ReadSubtree()) {
+                                while (filterReader.Read()) {
+                                    if (filterReader.NodeType == XmlNodeType.Text && mbConfig.Value != "*.*") {
+                                        artworkPatterns.Add(mbConfig.Value);
+                                    }
                                 }
                             }
-                        }
-                    };
-                } catch (Exception) { }
+                        };
+                    } catch (Exception) { }
 
-                mbTracks = new TrackList();
-                db = new DAAP.MusicBeeDatabase(settings.serverName, settings.optimisedMetadata);
-                revisionManager = new MusicBeeRevisionManager(db);
-                mbTracks.RevisionManager = revisionManager;
+                    mbTracks = new TrackList();
+                    db = new DAAP.MusicBeeDatabase(settings.serverName, settings.optimisedMetadata);
+                    revisionManager = new MusicBeeRevisionManager(db);
 
-                try {
-                    InitialiseServer(db, revisionManager);
-                } catch (Exception) {
-                    initialised = false;
-                }
-            } else if (initialised) {
-                switch (type) {
-                    case NotificationType.FileAddedToInbox:
-                    case NotificationType.FileAddedToLibrary:
-                        revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileAdded);
-                        break;
-                    case NotificationType.FileDeleted:
-                        revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileRemoved);
-                        break;
-                    case NotificationType.TagsChanged:
-                        revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileChanged);
-                        break;
-                    case NotificationType.LibrarySwitched:
-                        RestartServer();
-                        break;
-                    default:
-                        break;
-                }
+                    InitialiseServer();
+                    break;
+                case NotificationType.FileAddedToInbox:
+                case NotificationType.FileAddedToLibrary:
+                    revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileAdded);
+                    break;
+                case NotificationType.FileDeleted:
+                    revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileRemoved);
+                    break;
+                case NotificationType.TagsChanged:
+                    revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileChanged);
+                    break;
+                case NotificationType.LibrarySwitched:
+                    RestartServer();
+                    break;
+                default:
+                    break;
             }
         }
 
-        private void RestartServer()
+        private void InitialiseServer()
         {
-            server.Stop();
-            revisionManager.Reset();
-            InitialiseServer(db, revisionManager);
+            errors = PluginError.Initialising;
+
+            try {
+                // Initialise bonjour provider on this thread so we can catch the exception
+                Mono.Zeroconf.Providers.IZeroconfProvider provider = Mono.Zeroconf.Providers.ProviderFactory.SelectedProvider;
+
+                server = new DAAP.Server(settings.serverName, revisionManager);
+                server.Port = settings.serverPort;
+
+                server.Collision += (o, args) =>
+                {
+                    if (server.Name.Length > settings.serverName.Length) {
+                        int next = int.Parse(server.Name.Substring(server.Name.Length + 1)) + 1;
+                        server.Name = settings.serverName + " " + next.ToString();
+                    } else {
+                        server.Name += " 2";
+                    }
+                };
+
+                server.TrackRequested += OnTrackRequest;
+
+                if (BonjourWakeOnDemandEnabled() == false) {
+                    server.UserLogin += OnLogin;
+                    server.UserLogout += OnLogout;
+                }
+
+                server.UserLogin += revisionManager.OnLogin;
+                server.UserLogout += revisionManager.OnLogout;
+
+                server.AddDatabase(db);
+                server.Start();
+
+                errors = PluginError.None;
+            } catch (SocketException) {
+                errors = PluginError.PortTaken;
+            } catch (Mono.Zeroconf.Providers.Bonjour.ServiceErrorException) {
+                errors = PluginError.BonjourNotFound;
+            } catch (Exception) {
+                // Fatal.
+                if (configForm != null) {
+                    configForm.Close();
+                }
+
+                mbApi.MB_SendNotification(CallbackType.DisablePlugin);
+
+            }
+
+            if (configForm != null) {
+                configForm.SetMessages(errors);
+            }
+        }
+
+        private async Task<PluginError> RestartServer()
+        {
+            Task work = Task.Factory.StartNew(new Action(delegate {
+                server.Stop();
+                revisionManager.Reset();
+                InitialiseServer();
+            }));
+
+            await work;
+
+            return errors;
         }
 
         // return an array of lyric or artwork provider names this plugin supports
@@ -348,37 +400,6 @@ namespace MusicBeePlugin
         public string[] GetProviders()
         {
             return null;
-        }
-
-        private void InitialiseServer(DAAP.MusicBeeDatabase db, MusicBeeRevisionManager revisionManager)
-        {
-            server = new DAAP.Server(settings.serverName, revisionManager);
-            server.Port = settings.serverPort;
-
-            server.Collision += (o, args) =>
-            {
-                if (server.Name.Length > settings.serverName.Length) {
-                    int next = int.Parse(server.Name.Substring(server.Name.Length + 1)) + 1;
-                    server.Name = settings.serverName + " " + next.ToString();
-                } else {
-                    server.Name += " 2";
-                }
-            };
-
-            server.TrackRequested += OnTrackRequest;
-
-            if (BonjourWakeOnDemandEnabled() == false) {
-                server.UserLogin += OnLogin;
-                server.UserLogout += OnLogout;
-            }
-
-            server.UserLogin += revisionManager.OnLogin;
-            server.UserLogout += revisionManager.OnLogout;
-
-            server.AddDatabase(db);
-            server.Start();
-
-            initialised = true;
         }
 
         private static bool BonjourWakeOnDemandEnabled()

@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-
 public class ArtworkData
 {
     public string type;
@@ -219,32 +218,35 @@ public class Artwork
             }
         } else {
             // Sometimes GetArtworkEx fails...
-            foreach (var rawPattern in Plugin.artworkPatterns) {
-                string pattern = rawPattern.Replace("<Filename>", Path.GetFileNameWithoutExtension(file));
+            string directory = Path.GetDirectoryName(file);
+            if (Directory.Exists(directory)) {
+                foreach (var rawPattern in Plugin.artworkPatterns) {
+                    string pattern = rawPattern.Replace("<Filename>", Path.GetFileNameWithoutExtension(file));
 
-                // ...if there is embedded artwork, GetArtworkEx does not fail
+                    // ...if there is embedded artwork, GetArtworkEx does not fail
 #if false
-                if (pattern == "Embedded") {
-                    result = GetArtworkFromID3(file);
-                    if (result != null) {
-                        break;
-                    }
-                } 
-                else
+                    if (pattern == "Embedded") {
+                        result = GetArtworkFromID3(file);
+                        if (result != null) {
+                            break;
+                        }
+                    } 
+                    else
 #endif
-                {
-                    var matches = Directory.EnumerateFiles(Path.GetDirectoryName(file), pattern, SearchOption.AllDirectories);
+                    {
+                        var matches = Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories);
 
-                    if (matches.Count() > 10) {
-                        // We've hit some parent directory
-                        continue;
-                    }
+                        if (matches.Count() > 10) {
+                            // We've hit some parent directory
+                            continue;
+                        }
 
-                    foreach (var artwork in matches) {
-                        if (AudioStream.IsAudioFile(artwork) == false) {
-                            result = OpenArtworkFile(artwork);
-                            if (result != null) {
-                                goto done;
+                        foreach (var artwork in matches) {
+                            if (AudioStream.IsAudioFile(artwork) == false) {
+                                result = OpenArtworkFile(artwork);
+                                if (result != null) {
+                                    goto done;
+                                }
                             }
                         }
                     }

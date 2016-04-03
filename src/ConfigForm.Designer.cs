@@ -27,6 +27,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigForm));
             this.serverNameLabel = new System.Windows.Forms.Label();
             this.serverNameInput = new System.Windows.Forms.TextBox();
@@ -56,10 +57,15 @@
             this.closeButton = new System.Windows.Forms.Button();
             this.saveButton = new System.Windows.Forms.Button();
             this.applyButton = new System.Windows.Forms.Button();
+            this.portError = new System.Windows.Forms.ErrorProvider(this.components);
+            this.statusLabel = new System.Windows.Forms.Label();
+            this.bonjourError = new System.Windows.Forms.ErrorProvider(this.components);
             this.serverGroup.SuspendLayout();
             this.transcodeGroup.SuspendLayout();
             this.formatsGroup.SuspendLayout();
             this.optimiseGroup.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.portError)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.bonjourError)).BeginInit();
             this.SuspendLayout();
             // 
             // serverNameLabel
@@ -366,11 +372,31 @@
             this.applyButton.UseVisualStyleBackColor = true;
             this.applyButton.Click += new System.EventHandler(this.applyButton_Click);
             // 
+            // portError
+            // 
+            this.portError.BlinkStyle = System.Windows.Forms.ErrorBlinkStyle.NeverBlink;
+            this.portError.ContainerControl = this;
+            this.portError.RightToLeft = true;
+            // 
+            // statusLabel
+            // 
+            this.statusLabel.AutoSize = true;
+            this.statusLabel.Location = new System.Drawing.Point(301, 308);
+            this.statusLabel.Name = "statusLabel";
+            this.statusLabel.Size = new System.Drawing.Size(0, 13);
+            this.statusLabel.TabIndex = 15;
+            // 
+            // bonjourError
+            // 
+            this.bonjourError.BlinkStyle = System.Windows.Forms.ErrorBlinkStyle.NeverBlink;
+            this.bonjourError.ContainerControl = this;
+            // 
             // ConfigForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(710, 333);
+            this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.applyButton);
             this.Controls.Add(this.saveButton);
             this.Controls.Add(this.closeButton);
@@ -388,6 +414,8 @@
             this.transcodeGroup.PerformLayout();
             this.formatsGroup.ResumeLayout(false);
             this.optimiseGroup.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.portError)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.bonjourError)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -423,5 +451,8 @@
         private System.Windows.Forms.RadioButton replayGainTrack;
         private System.Windows.Forms.RadioButton replayGainSmart;
         private System.Windows.Forms.RadioButton replayGainAlbum;
+        private System.Windows.Forms.ErrorProvider portError;
+        private System.Windows.Forms.Label statusLabel;
+        private System.Windows.Forms.ErrorProvider bonjourError;
     }
 }

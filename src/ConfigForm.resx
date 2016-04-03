@@ -124,6 +124,9 @@ Use MusicBee's audio settings if you would like to use its resampling and upmixi
 
 If MusicBee's settings, dsp, or replaygain is applied all formats are transcoded. Your client may support replaygain; in that case, it's preferable to not transcode.</value>
   </data>
+  <metadata name="portError.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>17, 17</value>
+  </metadata>
   <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
   <data name="$this.Icon" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
@@ -1339,4 +1342,7 @@ If MusicBee's settings, dsp, or replaygain is applied all formats are transcoded
         rEEAAKxBgACsQYAArEHAAKxB8AGsQfwDrEE=
 </value>
   </data>
+  <metadata name="bonjourError.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>118, 17</value>
+  </metadata>
 </root>

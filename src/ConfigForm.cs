@@ -23,6 +23,71 @@ namespace MusicBeePlugin.src
             this.instance = instance;
         }
 
+        internal void SetFormSettings(Settings settings)
+        {
+            serverNameInput.Text = settings.serverName;
+            portInput.Text = settings.serverPort.ToString();
+
+            SetOptimiseLabels(settings.optimisedUserAgent, "optimise");
+
+            pcm.Checked = settings.transcode.usePCM;
+            mbAudio.Checked = settings.transcode.useMusicBeeSettings;
+            dsp.Checked = settings.transcode.enableDSP;
+
+            switch (settings.transcode.replayGainMode) {
+                case Plugin.ReplayGainMode.Album:
+                    replayGainAlbum.Checked = true;
+                    break;
+                case Plugin.ReplayGainMode.Track:
+                    replayGainTrack.Checked = true;
+                    break;
+                case Plugin.ReplayGainMode.Smart:
+                    replayGainSmart.Checked = true;
+                    break;
+                default:
+                    replayGainOff.Checked = true;
+                    break;
+            }
+
+            for (int i = 0; i < transcodeFormats.Items.Count; i++) {
+                var item = transcodeFormats.Items[i];
+                Plugin.FileCodec codec = AudioStream.GetFileCodec(transcodeFormats.GetItemText(item));
+                Debug.Assert(codec != Plugin.FileCodec.Unknown);
+                if (settings.transcode.formats.Contains(codec)) {
+                    transcodeFormats.SetItemChecked(i, true);
+                }
+            }
+        }
+
+        internal void SetMessages(PluginError errors)
+        {
+            if (InvokeRequired) {
+                Invoke(new MethodInvoker(delegate { SetMessagesInternal(errors); }));
+            } else {
+                SetMessagesInternal(errors);
+            }
+        }
+        
+        private void SetMessagesInternal(PluginError errors)
+        {
+            if (errors.HasFlag(PluginError.Initialising)) {
+                statusLabel.Text = "Server is still setting up...";
+                bonjourError.Clear();
+            } else if (errors.HasFlag(PluginError.BonjourNotFound)) {
+                statusLabel.Text = "Apple\'s Bonjour is required.";
+                bonjourError.SetError(statusLabel, "Unable to connect to bonjour");
+            } else {
+                statusLabel.Text = "";
+                bonjourError.Clear();
+            }
+
+            if (errors.HasFlag(PluginError.PortTaken)) {
+                portError.SetError(portLabel, "This port is taken");
+            } else {
+                portError.Clear();
+            }
+        }
+
         private void portInput_TextChanged(object sender, EventArgs e)
         {
             ushort validPort = port;
@@ -68,7 +133,7 @@ namespace MusicBeePlugin.src
                 transcodeFormats.SetItemChecked(i, Plugin.iTunesFormats.Contains(format) == false);
             }
         }
-
+        
         private void applyButton_Click(object sender, EventArgs e)
         {
             List<Plugin.FileCodec> formats = new List<Plugin.FileCodec>();
@@ -117,42 +182,6 @@ namespace MusicBeePlugin.src
                 Invoke(setter);
             } else {
                 setter();
-            }
-        }
-
-        internal void SetFormSettings(Settings settings)
-        {
-            serverNameInput.Text = settings.serverName;
-            portInput.Text = settings.serverPort.ToString();
-
-            SetOptimiseLabels(settings.optimisedUserAgent, "optimise");
-
-            pcm.Checked = settings.transcode.usePCM;
-            mbAudio.Checked = settings.transcode.useMusicBeeSettings;
-            dsp.Checked = settings.transcode.enableDSP;
-
-            switch (settings.transcode.replayGainMode) {
-                case Plugin.ReplayGainMode.Album:
-                    replayGainAlbum.Checked = true;
-                    break;
-                case Plugin.ReplayGainMode.Track:
-                    replayGainTrack.Checked = true;
-                    break;
-                case Plugin.ReplayGainMode.Smart:
-                    replayGainSmart.Checked = true;
-                    break;
-                default:
-                    replayGainOff.Checked = true;
-                    break;
-            }
-
-            for (int i = 0; i < transcodeFormats.Items.Count; i++) {
-                var item = transcodeFormats.Items[i];
-                Plugin.FileCodec codec = AudioStream.GetFileCodec(transcodeFormats.GetItemText(item));
-                Debug.Assert(codec != Plugin.FileCodec.Unknown);
-                if (settings.transcode.formats.Contains(codec)) {
-                    transcodeFormats.SetItemChecked(i, true);
-                }
             }
         }
 
