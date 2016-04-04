@@ -15,21 +15,30 @@ namespace MusicBeePlugin
             public bool useMusicBeeSettings = false;
             public bool enableDSP = false;
             public Plugin.ReplayGainMode replayGainMode = Plugin.ReplayGainMode.Off;
-            public List<Plugin.FileCodec> formats = new List<Plugin.FileCodec> {
-                Plugin.FileCodec.Unknown,
-                Plugin.FileCodec.Flac,
-                Plugin.FileCodec.Ogg,
-                Plugin.FileCodec.WavPack,
-                Plugin.FileCodec.Wma,
-                Plugin.FileCodec.Tak,
-                Plugin.FileCodec.Mpc,
-                Plugin.FileCodec.Asx,
-                Plugin.FileCodec.Pcm,
-                Plugin.FileCodec.Opus,
-                Plugin.FileCodec.Spx,
-                Plugin.FileCodec.Dsd,
-                Plugin.FileCodec.AacNoContainer
-            };
+            public List<Plugin.FileCodec> formats = null;
+
+            internal static TranscodeOptions WithDefaultTranscodeFormats()
+            {
+                TranscodeOptions result = new TranscodeOptions { };
+
+                result.formats = new List<Plugin.FileCodec> {
+                    Plugin.FileCodec.Unknown,
+                    Plugin.FileCodec.Flac,
+                    Plugin.FileCodec.Ogg,
+                    Plugin.FileCodec.WavPack,
+                    Plugin.FileCodec.Wma,
+                    Plugin.FileCodec.Tak,
+                    Plugin.FileCodec.Mpc,
+                    Plugin.FileCodec.Asx,
+                    Plugin.FileCodec.Pcm,
+                    Plugin.FileCodec.Opus,
+                    Plugin.FileCodec.Spx,
+                    Plugin.FileCodec.Dsd,
+                    Plugin.FileCodec.AacNoContainer
+                };
+
+                return result;
+            }
         }
 
         public class BASSStream : Stream
