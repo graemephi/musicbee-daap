@@ -13,7 +13,7 @@ using System.Xml.Serialization;
 namespace MusicBeePlugin
 {
     [Flags()]
-    enum PluginError
+    public enum PluginError
     {
         None = 0,
         Initialising = 1,
@@ -26,8 +26,9 @@ namespace MusicBeePlugin
         public string serverName = "MusicBee";
         public ushort serverPort = 3690;
         public AudioStream.TranscodeOptions transcode = AudioStream.TranscodeOptions.WithDefaultTranscodeFormats();
-        public string optimisedUserAgent = "iTunes/12.3.3";
-        public string optimisedMetadata = "dmap.itemid,dmap.itemname,dmap.itemkind,dmap.persistentid,daap.songalbum,daap.songgrouping,daap.songartist,daap.songalbumartist,daap.songbitrate,daap.songbeatsperminute,daap.songcomment,daap.songcodectype,daap.songcodecsubtype,daap.songcompilation,daap.songcomposer,daap.songdateadded,daap.songdatemodified,daap.songdisccount,daap.songdiscnumber,daap.songdisabled,daap.songeqpreset,daap.songformat,daap.songgenre,daap.songdescription,daap.songrelativevolume,daap.songsamplerate,daap.songsize,daap.songstarttime,daap.songstoptime,daap.songtime,daap.songtrackcount,daap.songtracknumber,daap.songuserrating,daap.songyear,daap.songdatakind,daap.songdataurl,daap.songcontentrating,com.apple.itunes.norm-volume,com.apple.itunes.itms-songid,com.apple.itunes.itms-artistid,com.apple.itunes.itms-playlistid,com.apple.itunes.itms-composerid,com.apple.itunes.itms-genreid,com.apple.itunes.itms-storefrontid,com.apple.itunes.has-videodaap.songcategory,daap.songextradata,daap.songcontentdescription,daap.songlongcontentdescription,com.apple.itunes.is-podcast,com.apple.itunes.mediakind,com.apple.itunes.extended-media-kind,com.apple.itunes.series-name,com.apple.itunes.episode-num-str,com.apple.itunes.episode-sort,com.apple.itunes.season-num,daap.songgapless,com.apple.itunes.gapless-enc-del,com.apple.itunes.gapless-heur,com.apple.itunes.gapless-enc-dr,com.apple.itunes.gapless-dur,com.apple.itunes.gapless-resy,com.apple.itunes.content-rating";
+        public string optimisedUserAgent = "None";
+        public string optimisedMetadata = null;
+        public bool optimisationPinned = false;
     }
 
     public static class ThreadExecutionState
@@ -79,10 +80,8 @@ namespace MusicBeePlugin
         public static TrackList mbTracks;
 
         private PluginError errors = PluginError.Initialising;
-
-        private bool optimising = false;
+        
         ConfigForm configForm;
-
 
         private PluginInfo about = new PluginInfo();
         
@@ -113,12 +112,9 @@ namespace MusicBeePlugin
             string dataPath = mbApi.Setting_GetPersistentStoragePath();
 
              if (configForm == null) {
-                configForm = new ConfigForm(this);
-                configForm.SetFormSettings(settings);
-                configForm.SetMessages(errors);
+                configForm = new ConfigForm(this, settings, errors);
 
-                configForm.FormClosed += delegate {
-                    CancelOptimisation();
+                configForm.FormClosed += (sender, e) => {
                     configForm = null;
                 };
 
@@ -131,22 +127,6 @@ namespace MusicBeePlugin
             return true;
         }
 
-        private static bool UpdateField<T>(string name, T oldFields, T newFields)
-        {
-            bool updated = false;
-
-            var field = typeof(T).GetField(name);
-            var oldValue = field.GetValue(oldFields);
-            var newValue = field.GetValue(newFields);
-
-            if (oldValue.Equals(newValue) == false) {
-                field.SetValue(oldFields, newValue);
-                updated = true;
-            }
-
-            return updated;
-        }
-
         internal async void ApplyAndSave(Settings newSettings)
         {
             bool settingsModified = false;
@@ -155,6 +135,8 @@ namespace MusicBeePlugin
             settingsModified |= UpdateField("serverName", settings, newSettings);
             settingsModified |= UpdateField("serverPort", settings, newSettings);
             serverRestartRequired = settingsModified;
+
+            settingsModified |= UpdateField("optimisationPinned", settings, newSettings);
 
             settingsModified |= UpdateField("usePCM", settings.transcode, newSettings.transcode);
             settingsModified |= UpdateField("useMusicBeeSettings", settings.transcode, newSettings.transcode);
@@ -192,22 +174,28 @@ namespace MusicBeePlugin
         private void WriteSettings()
         {
             string dataPath = mbApi.Setting_GetPersistentStoragePath();
+            string filePath = Path.Combine(dataPath, SETTINGS_FILE);
 
-            using (XmlWriter settingsFile = XmlWriter.Create(Path.Combine(dataPath, SETTINGS_FILE), new XmlWriterSettings { Indent = true })) {
-                XmlSerializer serialiser = new XmlSerializer(typeof(Settings));
-                serialiser.Serialize(settingsFile, settings);
-            }
+            try {
+                using (XmlWriter settingsFile = XmlWriter.Create(filePath, new XmlWriterSettings { Indent = true })) {
+                    XmlSerializer serialiser = new XmlSerializer(typeof(Settings));
+                    serialiser.Serialize(settingsFile, settings);
+                }
+            } catch { }
         }
 
         private Settings LoadSettings()
         {
             string dataPath = mbApi.Setting_GetPersistentStoragePath();
+            string filePath = Path.Combine(dataPath, SETTINGS_FILE);
             Settings result = null;
 
-            using (XmlReader settingsFile = XmlReader.Create(Path.Combine(dataPath, SETTINGS_FILE))) {
-                XmlSerializer serialiser = new XmlSerializer(typeof(Settings));
-                result = (Settings)serialiser.Deserialize(settingsFile);
-            }
+            try {
+                using (XmlReader settingsFile = XmlReader.Create(filePath)) {
+                    XmlSerializer serialiser = new XmlSerializer(typeof(Settings));
+                    result = (Settings)serialiser.Deserialize(settingsFile);
+                }
+            } catch { }
 
             if (result == null) {
                 result = new Settings { };
@@ -216,60 +204,32 @@ namespace MusicBeePlugin
             return result;
         }
 
-        private void OptimiseHandler(object o, DAAP.DatabaseRequestedArgs info)
+        internal void RefreshConfigForm()
         {
-            lock (settings) {
-                if (optimising) {
-                    optimising = false;
-                    server.DatabaseRequested -= OptimiseHandler;
-                    
-                    if (info.userAgent != null) {
-                        settings.optimisedMetadata = info.daapMeta;
-                        settings.optimisedUserAgent = info.userAgent;
-
-                        WriteSettings();
-
-                        db.CacheContentNodes(info.daapMeta);
-                    }
-
-                    if (configForm != null) {
-                        configForm.SetFormSettings(settings);
-                    }
-                }                
+            if (configForm != null) {
+                configForm.SetFormSettings(settings);
             }
         }
 
-        internal void OptimiseForNextRequest()
+        private void OnDatabaseRequest(object o, DAAP.DatabaseRequestedArgs info)
         {
-            lock (settings) {
-                optimising = true;
-                server.DatabaseRequested += OptimiseHandler;
+            if (info.userAgent != null && (settings.optimisationPinned == false || settings.optimisedMetadata == null)) {
+                settings.optimisedUserAgent = info.userAgent;
+                settings.optimisedMetadata = info.daapMetadata;
+
+                WriteSettings();
+                db.CacheContentNodes(info.daapMetadata, info.response);
+                RefreshConfigForm();
             }
-        }
-
-        internal void CancelOptimisation()
-        {
-            if (Monitor.TryEnter(settings)) {
-                if (optimising) {
-                    optimising = false;
-                    server.DatabaseRequested -= OptimiseHandler;
-                }
-
-                Monitor.Exit(settings);
-            }
-        }
-
-        // called by MusicBee when the user clicks Apply or Save in the MusicBee Preferences screen.
-        // its up to you to figure out whether anything has changed and needs updating
-        public void SaveSettings()
-        {
         }
 
         // MusicBee is closing the plugin (plugin is being disabled by user or MusicBee is shutting down)
         public void Close(PluginCloseReason reason)
         {
-            revisionManager.Stop();
-            server.Stop();
+            if (reason != PluginCloseReason.MusicBeeClosing) {
+                revisionManager.Stop();
+                server.Stop();
+            }
         }
 
         // uninstall this plugin - clean up any persisted files
@@ -321,6 +281,7 @@ namespace MusicBeePlugin
                     revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileChanged);
                     break;
                 case NotificationType.LibrarySwitched:
+                    #pragma warning disable
                     RestartServer();
                     break;
                 default:
@@ -350,6 +311,7 @@ namespace MusicBeePlugin
                 };
 
                 server.TrackRequested += OnTrackRequest;
+                server.DatabaseRequested += OnDatabaseRequest;
 
                 if (BonjourWakeOnDemandEnabled() == false) {
                     server.UserLogin += OnLogin;
@@ -358,6 +320,7 @@ namespace MusicBeePlugin
 
                 server.UserLogin += revisionManager.OnLogin;
                 server.UserLogout += revisionManager.OnLogout;
+
 
                 server.AddDatabase(db);
                 server.Start();
@@ -384,22 +347,13 @@ namespace MusicBeePlugin
 
         private async Task<PluginError> RestartServer()
         {
-            Task work = Task.Factory.StartNew(new Action(delegate {
+            await Task.Factory.StartNew(() => {
                 server.Stop();
                 revisionManager.Reset();
                 InitialiseServer();
-            }));
-
-            await work;
+            });
 
             return errors;
-        }
-
-        // return an array of lyric or artwork provider names this plugin supports
-        // the providers will be iterated through one by one and passed to the RetrieveLyrics/ RetrieveArtwork function in order set by the user in the MusicBee Tags(2) preferences screen until a match is found
-        public string[] GetProviders()
-        {
-            return null;
         }
 
         private static bool BonjourWakeOnDemandEnabled()
@@ -430,6 +384,22 @@ namespace MusicBeePlugin
             return s;
         }
 
+        private static bool UpdateField<T>(string name, T oldFields, T newFields)
+        {
+            bool updated = false;
+
+            var field = typeof(T).GetField(name);
+            var oldValue = field.GetValue(oldFields);
+            var newValue = field.GetValue(newFields);
+
+            if (oldValue.Equals(newValue) == false) {
+                field.SetValue(oldFields, newValue);
+                updated = true;
+            }
+
+            return updated;
+        }
+
         private static void OnLogin(object sender, DAAP.UserArgs args)
         {
             ThreadExecutionState.PreventSleep();
@@ -443,6 +413,20 @@ namespace MusicBeePlugin
         private static void OnTrackRequest(object sender, DAAP.TrackRequestedArgs args)
         {
             ThreadExecutionState.ResetSleepTimer();
+        }
+
+
+        // return an array of lyric or artwork provider names this plugin supports
+        // the providers will be iterated through one by one and passed to the RetrieveLyrics/ RetrieveArtwork function in order set by the user in the MusicBee Tags(2) preferences screen until a match is found
+        public string[] GetProviders()
+        {
+            return null;
+        }
+        
+        // called by MusicBee when the user clicks Apply or Save in the MusicBee Preferences screen.
+        // its up to you to figure out whether anything has changed and needs updating
+        public void SaveSettings()
+        {
         }
     }
 }

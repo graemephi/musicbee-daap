@@ -127,25 +127,8 @@ namespace MusicBeePlugin {
                 }
 
                 if (((receivedNotificationTypes & (NotificationType.FileAdded | NotificationType.FileRemoved)) != NotificationType.None) && (added.Length > 0 || removed.Length > 0)) {
-                    if (numberOfOpenConnections == 0 && revisions.Count > 0) {
-                        Revision lastRevision = revisions.Pop();
-
-                        int oldLength = lastRevision.removedIds.Length;
-                        int combinedLength = removed.Length + oldLength;
-                        int[] oldRemovedIds = lastRevision.removedIds;
-                        int[] removedIds = musicBeeDatabase.GetIdsOfTracks(removed);
-                        int[] combinedIds = new int[combinedLength];
-
-                        int index = 0;
-                        foreach (var id in oldRemovedIds.Union(removedIds)) {
-                            combinedIds[index++] = id;
-                        }
-
-                        revisions.Push(new Revision
-                        {
-                            id = lastRevision.id,
-                            removedIds = combinedIds
-                        });
+                    if (numberOfOpenConnections == 0) {
+                        Clear();
                     } else {
                         int nextRevision = Current + 1;
 
@@ -157,6 +140,7 @@ namespace MusicBeePlugin {
                     }
 
                     musicBeeDatabase.Update(added, removed);
+
                 }
 
                 lastUpdate = DateTime.Now;

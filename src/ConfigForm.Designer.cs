@@ -51,8 +51,7 @@
             this.iTunesButton = new System.Windows.Forms.Button();
             this.formatsLabel = new System.Windows.Forms.Label();
             this.optimiseGroup = new System.Windows.Forms.GroupBox();
-            this.optimiseLabel = new System.Windows.Forms.Label();
-            this.optimiseButton = new System.Windows.Forms.Button();
+            this.pinOptimisation = new System.Windows.Forms.CheckBox();
             this.optimiseDescription = new System.Windows.Forms.Label();
             this.closeButton = new System.Windows.Forms.Button();
             this.saveButton = new System.Windows.Forms.Button();
@@ -60,6 +59,7 @@
             this.portError = new System.Windows.Forms.ErrorProvider(this.components);
             this.statusLabel = new System.Windows.Forms.Label();
             this.bonjourError = new System.Windows.Forms.ErrorProvider(this.components);
+            this.optimiseLabel = new System.Windows.Forms.Label();
             this.serverGroup.SuspendLayout();
             this.transcodeGroup.SuspendLayout();
             this.formatsGroup.SuspendLayout();
@@ -134,7 +134,7 @@
             this.transcodeGroup.Controls.Add(this.dsp);
             this.transcodeGroup.Controls.Add(this.mbAudio);
             this.transcodeGroup.Controls.Add(this.pcm);
-            this.transcodeGroup.Location = new System.Drawing.Point(14, 211);
+            this.transcodeGroup.Location = new System.Drawing.Point(12, 182);
             this.transcodeGroup.Name = "transcodeGroup";
             this.transcodeGroup.Size = new System.Drawing.Size(281, 115);
             this.transcodeGroup.TabIndex = 8;
@@ -302,45 +302,35 @@
             // 
             // optimiseGroup
             // 
+            this.optimiseGroup.Controls.Add(this.pinOptimisation);
             this.optimiseGroup.Controls.Add(this.optimiseLabel);
-            this.optimiseGroup.Controls.Add(this.optimiseButton);
             this.optimiseGroup.Controls.Add(this.optimiseDescription);
             this.optimiseGroup.Location = new System.Drawing.Point(14, 82);
             this.optimiseGroup.Name = "optimiseGroup";
-            this.optimiseGroup.Size = new System.Drawing.Size(281, 129);
+            this.optimiseGroup.Size = new System.Drawing.Size(281, 96);
             this.optimiseGroup.TabIndex = 11;
             this.optimiseGroup.TabStop = false;
             this.optimiseGroup.Text = "optimise";
             // 
-            // optimiseLabel
+            // pinOptimisation
             // 
-            this.optimiseLabel.Location = new System.Drawing.Point(3, 67);
-            this.optimiseLabel.Margin = new System.Windows.Forms.Padding(0);
-            this.optimiseLabel.Name = "optimiseLabel";
-            this.optimiseLabel.Size = new System.Drawing.Size(271, 16);
-            this.optimiseLabel.TabIndex = 2;
-            this.optimiseLabel.Text = "Currently optimised to:";
-            // 
-            // optimiseButton
-            // 
-            this.optimiseButton.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.optimiseButton.Location = new System.Drawing.Point(3, 86);
-            this.optimiseButton.Name = "optimiseButton";
-            this.optimiseButton.Size = new System.Drawing.Size(275, 40);
-            this.optimiseButton.TabIndex = 1;
-            this.optimiseButton.Text = "optimise";
-            this.optimiseButton.UseVisualStyleBackColor = true;
-            this.optimiseButton.Click += new System.EventHandler(this.optimiseButton_Click);
+            this.pinOptimisation.AutoSize = true;
+            this.pinOptimisation.Enabled = false;
+            this.pinOptimisation.Location = new System.Drawing.Point(9, 70);
+            this.pinOptimisation.Name = "pinOptimisation";
+            this.pinOptimisation.Size = new System.Drawing.Size(236, 17);
+            this.pinOptimisation.TabIndex = 3;
+            this.pinOptimisation.Text = "Pin client. Prevent optimising for other clients";
+            this.pinOptimisation.UseVisualStyleBackColor = true;
             // 
             // optimiseDescription
             // 
-            this.optimiseDescription.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.optimiseDescription.Location = new System.Drawing.Point(3, 16);
+            this.optimiseDescription.Location = new System.Drawing.Point(5, 16);
             this.optimiseDescription.Name = "optimiseDescription";
-            this.optimiseDescription.Size = new System.Drawing.Size(275, 110);
+            this.optimiseDescription.Size = new System.Drawing.Size(275, 35);
             this.optimiseDescription.TabIndex = 0;
-            this.optimiseDescription.Text = "By default the server is optimised to respond quickly to iTunes 12. If you have a" +
-    " very large library and are using another client you want to do this.";
+            this.optimiseDescription.Text = "The server optimises itself to quickly establish new connections to the last clie" +
+    "nt that connected to it.\r\n";
             // 
             // closeButton
             // 
@@ -391,6 +381,15 @@
             this.bonjourError.BlinkStyle = System.Windows.Forms.ErrorBlinkStyle.NeverBlink;
             this.bonjourError.ContainerControl = this;
             // 
+            // optimiseLabel
+            // 
+            this.optimiseLabel.Location = new System.Drawing.Point(6, 49);
+            this.optimiseLabel.Margin = new System.Windows.Forms.Padding(0);
+            this.optimiseLabel.Name = "optimiseLabel";
+            this.optimiseLabel.Size = new System.Drawing.Size(267, 16);
+            this.optimiseLabel.TabIndex = 2;
+            this.optimiseLabel.Text = "Currently optimised to:";
+            // 
             // ConfigForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -414,6 +413,7 @@
             this.transcodeGroup.PerformLayout();
             this.formatsGroup.ResumeLayout(false);
             this.optimiseGroup.ResumeLayout(false);
+            this.optimiseGroup.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.portError)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.bonjourError)).EndInit();
             this.ResumeLayout(false);
@@ -438,8 +438,6 @@
         private System.Windows.Forms.TextBox portInput;
         private System.Windows.Forms.GroupBox optimiseGroup;
         private System.Windows.Forms.Label optimiseDescription;
-        private System.Windows.Forms.Label optimiseLabel;
-        private System.Windows.Forms.Button optimiseButton;
         private System.Windows.Forms.Button closeButton;
         private System.Windows.Forms.Button saveButton;
         private System.Windows.Forms.Button applyButton;
@@ -454,5 +452,7 @@
         private System.Windows.Forms.ErrorProvider portError;
         private System.Windows.Forms.Label statusLabel;
         private System.Windows.Forms.ErrorProvider bonjourError;
+        private System.Windows.Forms.CheckBox pinOptimisation;
+        private System.Windows.Forms.Label optimiseLabel;
     }
 }

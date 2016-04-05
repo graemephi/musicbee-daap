@@ -15,20 +15,42 @@ namespace MusicBeePlugin.src
     {
         Plugin instance; 
         private ushort port;
-        private bool optimising = false;
         
-        public ConfigForm(Plugin instance)
+        public ConfigForm(Plugin instance, Settings settings, PluginError errors)
         {
             InitializeComponent();
             this.instance = instance;
+
+            SetFormSettingsInternal(settings);
+            SetMessagesInternal(errors);
+        }
+
+        internal void SetMessages(PluginError errors)
+        {
+            if (InvokeRequired) {
+                Invoke(new MethodInvoker(() => SetMessagesInternal(errors)));
+            } else {
+                SetMessagesInternal(errors);
+            }
         }
 
         internal void SetFormSettings(Settings settings)
         {
+            if (InvokeRequired) {
+                Invoke(new MethodInvoker(() => SetFormSettingsInternal(settings)));
+            } else {
+                SetFormSettingsInternal(settings);
+            }            
+        }
+
+        private void SetFormSettingsInternal(Settings settings)
+        {
             serverNameInput.Text = settings.serverName;
             portInput.Text = settings.serverPort.ToString();
 
-            SetOptimiseLabels(settings.optimisedUserAgent, "optimise");
+            pinOptimisation.Checked = settings.optimisationPinned;
+            pinOptimisation.Enabled = settings.optimisedMetadata != null;
+            optimiseLabel.Text = Plugin.TrimToCharacter(optimiseLabel.Text, ':') + ": " + (settings.optimisedUserAgent ?? "None");
 
             pcm.Checked = settings.transcode.usePCM;
             mbAudio.Checked = settings.transcode.useMusicBeeSettings;
@@ -56,15 +78,6 @@ namespace MusicBeePlugin.src
                 if (settings.transcode.formats.Contains(codec)) {
                     transcodeFormats.SetItemChecked(i, true);
                 }
-            }
-        }
-
-        internal void SetMessages(PluginError errors)
-        {
-            if (InvokeRequired) {
-                Invoke(new MethodInvoker(delegate { SetMessagesInternal(errors); }));
-            } else {
-                SetMessagesInternal(errors);
             }
         }
         
@@ -98,20 +111,7 @@ namespace MusicBeePlugin.src
                 portInput.SelectionStart = Math.Max(0, Math.Min(selection, portInput.Text.Length - 1) - 1);
             }
         }
-
-        private void optimiseButton_Click(object sender, EventArgs e)
-        {
-            if (optimising == false) {
-                SetOptimiseLabels("waiting for connection...", "cancel");
-                instance.OptimiseForNextRequest();
-            } else {
-                SetOptimiseLabels(Plugin.settings.optimisedUserAgent, "optimise");
-                instance.CancelOptimisation();
-            }
-
-            optimising = !optimising;
-        }
-
+        
         private void allButton_Click(object sender, EventArgs e)
         {
             for (int i = 0; i < transcodeFormats.Items.Count; i++) {
@@ -136,7 +136,7 @@ namespace MusicBeePlugin.src
         
         private void applyButton_Click(object sender, EventArgs e)
         {
-            List<Plugin.FileCodec> formats = new List<Plugin.FileCodec>();
+            List<Plugin.FileCodec> formats = new List<Plugin.FileCodec> { Plugin.FileCodec.Unknown };
             foreach (var item in transcodeFormats.CheckedItems) {
                 Plugin.FileCodec codec = AudioStream.GetFileCodec(transcodeFormats.GetItemText(item));
                 Debug.Assert(codec != Plugin.FileCodec.Unknown);
@@ -165,24 +165,12 @@ namespace MusicBeePlugin.src
                                    : Plugin.ReplayGainMode.Off,
                     formats = formats
                 },
-                optimisedMetadata = null
+                optimisedUserAgent = null,
+                optimisedMetadata = null,
+                optimisationPinned = pinOptimisation.Checked
             };
 
             instance.ApplyAndSave(settings);
-        }
-
-        private void SetOptimiseLabels(string labelText, string buttonText)
-        {
-            MethodInvoker setter = delegate {
-                optimiseLabel.Text = Plugin.TrimToCharacter(optimiseLabel.Text, ':') + ": " + labelText;
-                optimiseButton.Text = buttonText;
-            };
-
-            if (InvokeRequired) {
-                Invoke(setter);
-            } else {
-                setter();
-            }
         }
 
         private void saveButton_Click(object sender, EventArgs e)

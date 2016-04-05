@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using static MusicBeePlugin.Plugin;
 using MusicBeePlugin;
+using System.Diagnostics;
 
 namespace DAAP
 {
@@ -49,12 +50,19 @@ namespace DAAP
             CacheContentNodes(fields);
         }
 
-        public void CacheContentNodes(string fields)
+        public void CacheContentNodes(string fields, byte[] contentNodeBytes = null)
         {
             lock (tracks) {
-                ContentNode parentNode = ToTracksNode(fields.Split(','), new int[] { });
-                cachedContentNodes = ContentWriter.Write(ContentCodeBag.Default, parentNode);
                 fieldsInCachedNodes = fields;
+
+                if (fields != null) {
+                    if (contentNodeBytes == null) {
+                        ContentNode parentNode = ToTracksNode(fields.Split(','), new int[] { });
+                        contentNodeBytes = ContentWriter.Write(ContentCodeBag.Default, parentNode);
+                    }
+
+                    cachedContentNodes = contentNodeBytes;
+                }
             }
         }
 
@@ -197,18 +205,21 @@ namespace DAAP
         
         internal byte[] ToTracksNodeBytes(string fields, int[] deletedIds)
         {
-            if (deletedIds.Length == 0 && fields == fieldsInCachedNodes) {
-                byte[] result = null;
+            Debug.Assert(fields != null);
+            byte[] result = null;
 
-                lock (tracks) {
+            lock (tracks) {
+                if (deletedIds.Length == 0 && fields == fieldsInCachedNodes) {
                     result = cachedContentNodes;
                 }
-
-                return result;
-            } else {
-                ContentNode parentNode = ToTracksNode(fields.Split(','), deletedIds);
-                return ContentWriter.Write(ContentCodeBag.Default, parentNode);
             }
+            
+            if (result == null) {
+                ContentNode parentNode = ToTracksNode(fields.Split(','), deletedIds);
+                result = ContentWriter.Write(ContentCodeBag.Default, parentNode);
+            }
+
+            return result;
         }
     }
 }

@@ -457,7 +457,8 @@ namespace DAAP {
     public class DatabaseRequestedArgs : EventArgs
     {
         public string userAgent;
-        public string daapMeta;
+        public string daapMetadata;
+        public byte[] response;
     }
     
     public delegate void TrackRequestedHandler (object o, TrackRequestedArgs args);
@@ -781,13 +782,15 @@ namespace DAAP {
                     deletedIds = revmgr.GetDeletedIds(clientRev - delta);
                 }
 
+                byte[] response = curdb.ToTracksNodeBytes(daapMeta, deletedIds);
+
                 try {
                     if (DatabaseRequested != null) {
-                        DatabaseRequested(this, new DatabaseRequestedArgs { userAgent = userAgent, daapMeta = daapMeta });
+                        DatabaseRequested(this, new DatabaseRequestedArgs { userAgent = userAgent, daapMetadata = daapMeta, response = response });
                     }
                 } catch { }
                 
-                ws.WriteResponse(client, HttpStatusCode.OK, curdb.ToTracksNodeBytes(daapMeta, deletedIds));
+                ws.WriteResponse(client, HttpStatusCode.OK, response);
             } else if (dbTrackRegex.IsMatch(path)) {
                 Match match = dbTrackRegex.Match(path);
                 int dbid = Int32.Parse(match.Groups[1].Value);
