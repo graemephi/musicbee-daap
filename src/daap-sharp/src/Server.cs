@@ -365,64 +365,6 @@ namespace DAAP {
         }
     }
 
-    internal class RevisionManager {
-
-        private Dictionary<int, List<MusicBeeDatabase>> revisions = new Dictionary<int, List<MusicBeeDatabase>>();
-        private int current = 1;
-        private int limit = 3;
-
-        public int Current {
-            get { return current; }
-        }
-
-        public int HistoryLimit {
-            get { return limit; }
-            set { limit = value; }
-        }
-
-        public void AddRevision(List<MusicBeeDatabase> databases) {
-            revisions[++current] = databases;
-
-            if (revisions.Keys.Count > limit) {
-                // remove the oldest
-
-                int oldest = current;
-                foreach (int rev in revisions.Keys) {
-                    if (rev < oldest) {
-                        oldest = rev;
-                    }
-                }
-
-                RemoveRevision(oldest);
-            }
-        }
-
-        public void RemoveRevision(int rev) {
-            revisions.Remove(rev);
-        }
-
-        public List<MusicBeeDatabase> GetRevision(int rev) {
-            if (rev == 0)
-                return revisions[current];
-            else
-                return revisions[rev];
-        }
-
-        public MusicBeeDatabase GetDatabase(int rev, int id) {
-            List<MusicBeeDatabase> dbs = GetRevision(rev);
-
-            if (dbs == null)
-                return null;
-
-            foreach (MusicBeeDatabase db in dbs) {
-                if (db.Id == id)
-                    return db;
-            }
-
-            return null;
-        }
-    }
-
     public class TrackRequestedArgs : EventArgs {
 
         private string user;

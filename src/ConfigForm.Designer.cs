@@ -52,6 +52,7 @@
             this.formatsLabel = new System.Windows.Forms.Label();
             this.optimiseGroup = new System.Windows.Forms.GroupBox();
             this.pinOptimisation = new System.Windows.Forms.CheckBox();
+            this.optimiseLabel = new System.Windows.Forms.Label();
             this.optimiseDescription = new System.Windows.Forms.Label();
             this.closeButton = new System.Windows.Forms.Button();
             this.saveButton = new System.Windows.Forms.Button();
@@ -59,7 +60,6 @@
             this.portError = new System.Windows.Forms.ErrorProvider(this.components);
             this.statusLabel = new System.Windows.Forms.Label();
             this.bonjourError = new System.Windows.Forms.ErrorProvider(this.components);
-            this.optimiseLabel = new System.Windows.Forms.Label();
             this.serverGroup.SuspendLayout();
             this.transcodeGroup.SuspendLayout();
             this.formatsGroup.SuspendLayout();
@@ -240,7 +240,6 @@
             "opus",
             "spx",
             "tak",
-            "wave",
             "wavpack",
             "wma"});
             this.transcodeFormats.Location = new System.Drawing.Point(300, 15);
@@ -323,6 +322,15 @@
             this.pinOptimisation.Text = "Pin client. Prevent optimising for other clients";
             this.pinOptimisation.UseVisualStyleBackColor = true;
             // 
+            // optimiseLabel
+            // 
+            this.optimiseLabel.Location = new System.Drawing.Point(6, 49);
+            this.optimiseLabel.Margin = new System.Windows.Forms.Padding(0);
+            this.optimiseLabel.Name = "optimiseLabel";
+            this.optimiseLabel.Size = new System.Drawing.Size(267, 16);
+            this.optimiseLabel.TabIndex = 2;
+            this.optimiseLabel.Text = "Currently optimised to:";
+            // 
             // optimiseDescription
             // 
             this.optimiseDescription.Location = new System.Drawing.Point(5, 16);
@@ -380,15 +388,6 @@
             // 
             this.bonjourError.BlinkStyle = System.Windows.Forms.ErrorBlinkStyle.NeverBlink;
             this.bonjourError.ContainerControl = this;
-            // 
-            // optimiseLabel
-            // 
-            this.optimiseLabel.Location = new System.Drawing.Point(6, 49);
-            this.optimiseLabel.Margin = new System.Windows.Forms.Padding(0);
-            this.optimiseLabel.Name = "optimiseLabel";
-            this.optimiseLabel.Size = new System.Drawing.Size(267, 16);
-            this.optimiseLabel.TabIndex = 2;
-            this.optimiseLabel.Text = "Currently optimised to:";
             // 
             // ConfigForm
             // 

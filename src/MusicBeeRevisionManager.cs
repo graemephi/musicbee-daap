@@ -1,11 +1,10 @@
-﻿using System;
+﻿using DAAP;
+using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Linq;
 
-using DAAP;
-
-namespace MusicBeePlugin {
+namespace MusicBeePlugin
+{
     using System.Diagnostics;
     using static Plugin;
 
@@ -97,59 +96,6 @@ namespace MusicBeePlugin {
             return currentRevision;
         }
 
-        private void Update()
-        {
-            string[] removed = { };
-            string[] updated = { };
-            string[] added = { };
-
-            lock (updateWaitHandle) {
-                Plugin.mbApi.Library_GetSyncDelta(musicBeeDatabase.Files, lastUpdate, LibraryCategory.Music | LibraryCategory.Inbox, ref added, ref updated, ref removed);
-
-                if (receivedNotificationTypes.HasFlag(NotificationType.FileAdded)) {
-                    foreach (string file in added) {
-                        int addedId = musicBeeDatabase.GetIdOfTrack(file);
-
-                        if (addedId != 0) {
-                            // Re-added tracks are zeroed in the revision history
-                            foreach (Revision revision in revisions) {
-                                for (int index = 0; index < revision.removedIds.Length; index++) {
-                                    int removedId = revision.removedIds[index];
-                                    if (addedId == removedId) {
-                                        revision.removedIds[index] = 0;
-                                        goto breakOuter;
-                                    }
-                                }
-                            }
-                            breakOuter:;
-                        }
-                    }
-                }
-
-                if (((receivedNotificationTypes & (NotificationType.FileAdded | NotificationType.FileRemoved)) != NotificationType.None) && (added.Length > 0 || removed.Length > 0)) {
-                    if (numberOfOpenConnections == 0) {
-                        Clear();
-                    } else {
-                        int nextRevision = Current + 1;
-
-                        revisions.Push(new Revision
-                        {
-                            id = nextRevision,
-                            removedIds = musicBeeDatabase.GetIdsOfTracks(removed)
-                        });
-                    }
-
-                    musicBeeDatabase.Update(added, removed);
-
-                }
-
-                lastUpdate = DateTime.Now;
-                Monitor.PulseAll(updateWaitHandle);
-            }
-
-            receivedNotificationTypes = NotificationType.None;
-        }
-
         public int[] GetDeletedIds(int revisionId)
         {
             List<int[]> removedIdSets = new List<int[]>();
@@ -185,6 +131,64 @@ namespace MusicBeePlugin {
             }
         }
 
+
+        private void Update()
+        {
+            string[] removed = { };
+            string[] updated = { };
+            string[] added = { };
+
+            lock (updateWaitHandle) {
+                Plugin.mbApi.Library_GetSyncDelta(musicBeeDatabase.Files, lastUpdate, LibraryCategory.Music | LibraryCategory.Inbox, ref added, ref updated, ref removed);
+
+                if (numberOfOpenConnections == 0) {
+                    Clear();
+                } else {
+                    int nextRevision = Current + 1;
+                    int[] removedIds = new int[0];
+
+                    if (receivedNotificationTypes != NotificationType.None) {
+                        // Tracks that are re-added after having been removed from musicbee are removed from the revision history
+                        if (receivedNotificationTypes.HasFlag(NotificationType.FileAdded)) {
+                            foreach (string file in added) {
+                                int addedId = musicBeeDatabase.GetIdOfTrack(file);
+
+                                if (addedId != 0) {
+                                    foreach (Revision revision in revisions) {
+                                        for (int index = 0; index < revision.removedIds.Length; index++) {
+                                            int removedId = revision.removedIds[index];
+                                            if (addedId == removedId) {
+                                                revision.removedIds[index] = 0;
+                                                goto breakOuter;
+                                            }
+                                        }
+                                    }
+breakOuter:;
+                                }
+                            }
+                        }
+
+                        removedIds = musicBeeDatabase.GetIdsOfTracks(removed);
+                    }
+
+                    revisions.Push(new Revision
+                    {
+                        id = nextRevision,
+                        removedIds = removedIds
+                    });
+                }
+
+                if ((receivedNotificationTypes.HasFlag(NotificationType.FileAdded) || receivedNotificationTypes.HasFlag(NotificationType.FileRemoved))
+                 && (added.Length > 0 && removed.Length > 0)) {
+                    musicBeeDatabase.Update(added, removed);
+                }
+
+                lastUpdate = DateTime.Now;
+                receivedNotificationTypes = NotificationType.None;
+                Monitor.PulseAll(updateWaitHandle);
+            }
+        }
+        
         private void Clear()
         {
             Debug.Assert(Monitor.IsEntered(updateWaitHandle));

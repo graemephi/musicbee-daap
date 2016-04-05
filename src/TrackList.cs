@@ -100,10 +100,12 @@ namespace MusicBeePlugin
                 id = ids[file];
             }
 
-            Track result = new Track();
+            Track result = null;
             string[] trackTags = { };
 
             if (mbApi.Library_GetFileTags(file, tags, ref trackTags)) {
+                result = new Track();
+
                 result.Artist = trackTags[ARTIST];
                 result.Album = trackTags[ALBUM];
                 result.AlbumArtist = trackTags[ALBUM_ARTIST];
@@ -151,11 +153,9 @@ namespace MusicBeePlugin
                 result.Format = AudioStream.GetFormatFromFileName(file);
                 result.SetId(id);
                 result.FileName = file;
-
-                return result;
             }
 
-            return null;
+            return result;
         }
 
         internal bool TryGetId(string filename, out int id)

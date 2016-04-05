@@ -134,9 +134,6 @@ namespace MusicBeePlugin
 
             settingsModified |= UpdateField("serverName", settings, newSettings);
             settingsModified |= UpdateField("serverPort", settings, newSettings);
-            serverRestartRequired = settingsModified;
-
-            settingsModified |= UpdateField("optimisationPinned", settings, newSettings);
 
             settingsModified |= UpdateField("usePCM", settings.transcode, newSettings.transcode);
             settingsModified |= UpdateField("useMusicBeeSettings", settings.transcode, newSettings.transcode);
@@ -158,7 +155,10 @@ namespace MusicBeePlugin
                 settings.transcode.formats = newSettings.transcode.formats;
                 settingsModified = true;
             }
-            
+
+            serverRestartRequired = settingsModified;
+            settingsModified |= UpdateField("optimisationPinned", settings, newSettings);
+
 
             if (settingsModified) {
                 if (serverRestartRequired) {

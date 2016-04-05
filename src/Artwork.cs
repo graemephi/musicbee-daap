@@ -169,7 +169,7 @@ public class Artwork
         return null;
     }
 
-    public static ArtworkData OpenArtworkFile(string file)
+    private static ArtworkData OpenArtworkFile(string file)
     {
         ArtworkData result = null;
 
@@ -198,7 +198,7 @@ public class Artwork
         return result;
     }
 
-    public static ArtworkData GetArtworkForTrack(string file)
+    private static ArtworkData GetArtworkForTrack(string file)
     {
         ArtworkData result = null;
 
@@ -260,7 +260,11 @@ public class Artwork
 
     public static ArtworkData GetArtwork(string track)
     {
-        ArtworkData result = GetArtworkForTrack(track);
+        ArtworkData result = null;
+
+        try {
+            result = GetArtworkForTrack(track);
+        } catch { }
 
         return result;
     }

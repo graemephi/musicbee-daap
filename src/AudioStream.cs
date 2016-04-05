@@ -250,6 +250,7 @@ namespace MusicBeePlugin
 
             private int WriteWAVHeader(byte[] buffer, int offset)
             {
+                Debug.Assert(offset == 0);
                 Debug.Assert(offset < WAV_HEADER_SIZE);
                 Debug.Assert(buffer.Length > WAV_HEADER_SIZE);
 
@@ -328,7 +329,7 @@ namespace MusicBeePlugin
             return result;
         }
 
-        private static string GetExtension(string file)
+        internal static string GetExtension(string file)
         {
             string ext = Path.GetExtension(file);
             string result = ext.Substring(1);
@@ -336,11 +337,14 @@ namespace MusicBeePlugin
             return result;
         }
 
-        private static bool IsTranscodeRequired(string ext)
+        internal static bool IsTranscodeRequired(string ext)
         {
             Plugin.FileCodec codec = GetFileCodec(ext);
 
-            return Plugin.settings.transcode.formats.Contains(codec);
+            return Plugin.settings.transcode.useMusicBeeSettings
+                || Plugin.settings.transcode.enableDSP
+                || Plugin.settings.transcode.replayGainMode != Plugin.ReplayGainMode.Off 
+                || Plugin.settings.transcode.formats.Contains(codec);
         }
 
         internal static Plugin.FileCodec GetFileCodec(string ext)
