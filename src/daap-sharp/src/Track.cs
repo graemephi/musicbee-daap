@@ -43,6 +43,9 @@ namespace DAAP {
         private DateTime dateModified = DateTime.Now;
         private short bitrate;
         private string artwork;
+        private int discNumber;
+        private int discCount;
+        private int rating;
 
         public event EventHandler Updated;
         
@@ -121,7 +124,7 @@ namespace DAAP {
         }
 
         public string Grouping {
-            get { return Grouping; }
+            get { return grouping; }
             set { grouping = value; }
         }
         
@@ -180,6 +183,24 @@ namespace DAAP {
             set { artwork = value; }
         }
 
+        public int DiscNumber
+        {
+            get { return discNumber; }
+            set { discNumber = value; }
+        }
+        
+        public int DiscCount
+        {
+            get { return discCount; }
+            set { discCount = value; }
+        }
+
+        public int Rating
+        {
+            get { return rating; }
+            set { rating = value; }
+        }
+
         public object Clone () {
             Track track = new Track ();
             track.artist = artist;
@@ -200,6 +221,9 @@ namespace DAAP {
             track.dateModified = dateModified;
             track.bitrate = bitrate;
             track.artwork = artwork;
+            track.discNumber = discNumber;
+            track.discCount = discCount;
+            track.rating = rating;
 
             return track;
         }
@@ -268,10 +292,10 @@ namespace DAAP {
                         val = dateModified;
                         break;
                     case "daap.songdisccount":
-                        val = (short) 0;
+                        val = (short) discCount;
                         break;
                     case "daap.songdiscnumber":
-                        val = (short) 0;
+                        val = (short) discNumber;
                         break;
                     case "daap.songdisabled":
                         val = (byte) 0;
@@ -313,7 +337,7 @@ namespace DAAP {
                         val = (short) trackNumber;
                         break;
                     case "daap.songuserrating":
-                        val = (byte) 0;
+                        val = (byte) rating;
                         break;
                     case "daap.songyear":
                         val = (short) year;

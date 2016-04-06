@@ -27,6 +27,9 @@ namespace MusicBeePlugin
             (MetaDataType)FilePropertyType.DateAdded,
             (MetaDataType)FilePropertyType.DateModified,
             MetaDataType.AlbumArtist,
+            MetaDataType.DiscNo,
+            MetaDataType.DiscCount,
+            MetaDataType.Rating
         };
 
         const int ARTIST = 0;
@@ -45,6 +48,9 @@ namespace MusicBeePlugin
         const int DATE_ADDED = 13;
         const int DATE_MODIFIED = 14;
         const int ALBUM_ARTIST = 15;
+        const int DISC_NO = 16;
+        const int DISC_COUNT = 17;
+        const int RATING = 18;
 
         private string[] files;
         private Dictionary<string, int> ids = new Dictionary<string, int>();
@@ -114,14 +120,19 @@ namespace MusicBeePlugin
                 result.Grouping = trackTags[GROUPING];
                 result.Artwork = trackTags[ARTWORK];
 
-                if (trackTags[GENRE] != null) {
+                if (trackTags[GENRE] != null && trackTags[GENRE] != String.Empty) {
                     result.Genre = TrimToCharacter(trackTags[GENRE], ';');
                 }
 
-                int year, trackNumber, trackCount;
+                int year, trackNumber, trackCount, discNumber, discCount;
                 if (int.TryParse(trackTags[YEAR], out year)) result.Year = year;
                 if (int.TryParse(trackTags[TRACK_NO], out trackNumber)) result.TrackNumber = trackNumber;
                 if (int.TryParse(trackTags[TRACK_COUNT], out trackCount)) result.TrackCount = trackCount;
+                if (int.TryParse(trackTags[DISC_NO], out discNumber)) result.DiscNumber = discNumber;
+                if (int.TryParse(trackTags[DISC_COUNT], out discCount)) result.DiscCount = discCount;
+
+                float rating;
+                if (float.TryParse(trackTags[RATING], out rating)) result.Rating = (int)(rating * 20);
 
                 TimeSpan duration;
                 if (TimeSpan.TryParseExact(trackTags[DURATION], @"m\:ss", null, out duration)) result.Duration = duration;
