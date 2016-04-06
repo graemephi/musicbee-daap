@@ -131,14 +131,23 @@ namespace MusicBeePlugin
         {
             bool settingsModified = false;
             bool serverRestartRequired = false;
+            bool formatsToTranscodeChanged = false;
 
-            settingsModified |= UpdateField("serverName", settings, newSettings);
-            settingsModified |= UpdateField("serverPort", settings, newSettings);
+            settingsModified |= UpdateField(ref settings.serverName, newSettings.serverName);
+            settingsModified |= UpdateField(ref settings.serverPort, newSettings.serverPort);
+            serverRestartRequired = settingsModified;
 
-            settingsModified |= UpdateField("usePCM", settings.transcode, newSettings.transcode);
-            settingsModified |= UpdateField("useMusicBeeSettings", settings.transcode, newSettings.transcode);
-            settingsModified |= UpdateField("enableDSP", settings.transcode, newSettings.transcode);
-            settingsModified |= UpdateField("replayGainMode", settings.transcode, newSettings.transcode);
+            settingsModified |= UpdateField(ref settings.optimisationPinned, newSettings.optimisationPinned);
+
+            if ((settings.transcode.useMusicBeeSettings || settings.transcode.enableDSP || settings.transcode.replayGainMode != ReplayGainMode.Off)
+                != (newSettings.transcode.useMusicBeeSettings || newSettings.transcode.enableDSP || newSettings.transcode.replayGainMode != ReplayGainMode.Off)) {
+                formatsToTranscodeChanged = true;
+            }
+
+            settingsModified |= UpdateField(ref settings.transcode.usePCM, newSettings.transcode.usePCM);
+            settingsModified |= UpdateField(ref settings.transcode.useMusicBeeSettings, newSettings.transcode.useMusicBeeSettings);
+            settingsModified |= UpdateField(ref settings.transcode.enableDSP, newSettings.transcode.enableDSP);
+            settingsModified |= UpdateField(ref settings.transcode.replayGainMode, newSettings.transcode.replayGainMode);
 
             if (settings.transcode.formats.Count == newSettings.transcode.formats.Count) {
                 settings.transcode.formats.Sort();
@@ -147,18 +156,16 @@ namespace MusicBeePlugin
                 for (int index = 0; index < settings.transcode.formats.Count; index++) {
                     if (settings.transcode.formats[index] != newSettings.transcode.formats[index]) {
                         settings.transcode.formats = newSettings.transcode.formats;
-                        settingsModified = true;
+                        settingsModified = formatsToTranscodeChanged = true;
                         break;
                     }
                 }
             } else {
                 settings.transcode.formats = newSettings.transcode.formats;
-                settingsModified = true;
+                settingsModified = formatsToTranscodeChanged = true;
             }
 
-            serverRestartRequired = settingsModified;
-            settingsModified |= UpdateField("optimisationPinned", settings, newSettings);
-
+            serverRestartRequired = serverRestartRequired || formatsToTranscodeChanged;
 
             if (settingsModified) {
                 if (serverRestartRequired) {
@@ -384,16 +391,12 @@ namespace MusicBeePlugin
             return s;
         }
 
-        private static bool UpdateField<T>(string name, T oldFields, T newFields)
+        private static bool UpdateField<T>(ref T oldField, T newField)
         {
             bool updated = false;
 
-            var field = typeof(T).GetField(name);
-            var oldValue = field.GetValue(oldFields);
-            var newValue = field.GetValue(newFields);
-
-            if (oldValue.Equals(newValue) == false) {
-                field.SetValue(oldFields, newValue);
+            if (oldField.Equals(newField) == false) {
+                oldField = newField;
                 updated = true;
             }
 
