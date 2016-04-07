@@ -80,10 +80,16 @@ namespace MusicBeePlugin
         public static TrackList mbTracks;
 
         private PluginError errors = PluginError.Initialising;
-        
+
         ConfigForm configForm;
 
         private PluginInfo about = new PluginInfo();
+
+        public string SettingsFilePath {
+            get {
+                return Path.Combine(mbApi.Setting_GetPersistentStoragePath(), SETTINGS_FILE);
+            }
+        }
         
         public PluginInfo Initialise(IntPtr apiInterfacePtr)
         {
@@ -165,26 +171,21 @@ namespace MusicBeePlugin
                 settingsModified = formatsToTranscodeChanged = true;
             }
 
-            serverRestartRequired = serverRestartRequired || formatsToTranscodeChanged;
+            serverRestartRequired = serverRestartRequired || formatsToTranscodeChanged || errors != PluginError.None;
 
-            if (settingsModified) {
-                if (serverRestartRequired) {
-                    await RestartServer();
-                }
+            if (serverRestartRequired) {
+                await RestartServer();
+            }
 
-                if (errors == PluginError.None) {
-                    WriteSettings();
-                }
+            if (settingsModified && errors == PluginError.None) {
+                WriteSettings();
             }
         }
 
         private void WriteSettings()
         {
-            string dataPath = mbApi.Setting_GetPersistentStoragePath();
-            string filePath = Path.Combine(dataPath, SETTINGS_FILE);
-
             try {
-                using (XmlWriter settingsFile = XmlWriter.Create(filePath, new XmlWriterSettings { Indent = true })) {
+                using (XmlWriter settingsFile = XmlWriter.Create(SettingsFilePath, new XmlWriterSettings { Indent = true })) {
                     XmlSerializer serialiser = new XmlSerializer(typeof(Settings));
                     serialiser.Serialize(settingsFile, settings);
                 }
@@ -193,12 +194,10 @@ namespace MusicBeePlugin
 
         private Settings LoadSettings()
         {
-            string dataPath = mbApi.Setting_GetPersistentStoragePath();
-            string filePath = Path.Combine(dataPath, SETTINGS_FILE);
             Settings result = null;
 
             try {
-                using (XmlReader settingsFile = XmlReader.Create(filePath)) {
+                using (XmlReader settingsFile = XmlReader.Create(SettingsFilePath)) {
                     XmlSerializer serialiser = new XmlSerializer(typeof(Settings));
                     result = (Settings)serialiser.Deserialize(settingsFile);
                 }
@@ -234,17 +233,16 @@ namespace MusicBeePlugin
         public void Close(PluginCloseReason reason)
         {
             if (reason != PluginCloseReason.MusicBeeClosing) {
-                revisionManager.Stop();
-                server.Stop();
+                revisionManager?.Stop();
+                server?.Stop();
             }
         }
 
         // uninstall this plugin - clean up any persisted files
         public void Uninstall()
         {
-            string dataPath = mbApi.Setting_GetPersistentStoragePath();
             try {
-                File.Delete(Path.Combine(dataPath, SETTINGS_FILE));
+                File.Delete(SettingsFilePath);
             } catch { };
         }
 
@@ -327,8 +325,7 @@ namespace MusicBeePlugin
 
                 server.UserLogin += revisionManager.OnLogin;
                 server.UserLogout += revisionManager.OnLogout;
-
-
+                
                 server.AddDatabase(db);
                 server.Start();
 
@@ -339,24 +336,22 @@ namespace MusicBeePlugin
                 errors = PluginError.BonjourNotFound;
             } catch (Exception) {
                 // Fatal.
-                if (configForm != null) {
-                    configForm.Close();
-                }
+                configForm?.Close();
+                server?.Stop();
+                revisionManager?.Stop();       
 
                 mbApi.MB_SendNotification(CallbackType.DisablePlugin);
 
             }
-
-            if (configForm != null) {
-                configForm.SetMessages(errors);
-            }
+            
+            configForm?.SetMessages(errors);
         }
 
         private async Task<PluginError> RestartServer()
         {
             await Task.Factory.StartNew(() => {
-                server.Stop();
-                revisionManager.Reset();
+                server?.Stop();
+                revisionManager?.Reset();
                 InitialiseServer();
             });
 
