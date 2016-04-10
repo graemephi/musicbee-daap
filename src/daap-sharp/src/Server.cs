@@ -653,8 +653,6 @@ namespace DAAP {
                 delta = Int32.Parse (query["delta"]);
             }
 
-            System.Diagnostics.Debug.WriteLine(String.Format("Current Revision: {2}, Revision: {0}\t\tDelta: {1}", clientRev, delta, revmgr.Current));
-
             if (path == "/server-info") {
                 ws.WriteResponse(client, GetServerInfoNode());
             } else if (path == "/content-codes") {
@@ -804,9 +802,7 @@ namespace DAAP {
                 ws.WriteResponse(client, curpl.ToTracksNode(deletedIds));
             } else if (path == "/update") {
                 int retrev = revmgr.WaitForUpdate(clientRev);
-
-                System.Diagnostics.Debug.WriteLine(String.Format("RetRev: {0}", retrev));
-
+                
                 if (!running) {
                     ws.WriteResponse(client, HttpStatusCode.NotFound, "server has been stopped");
                 } else {
