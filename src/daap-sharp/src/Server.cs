@@ -31,6 +31,7 @@ using System.Net.Sockets;
 
 using Mono.Zeroconf;
 using MusicBeePlugin;
+using System.Collections.Concurrent;
 
 namespace DAAP {
 
@@ -45,7 +46,7 @@ namespace DAAP {
         private WebHandler handler;
         private bool running;
         private List<NetworkCredential> creds = new List<NetworkCredential>();
-        private ArrayList clients = new ArrayList();
+        private ConcurrentDictionary<IntPtr, Socket> clients = new ConcurrentDictionary<IntPtr, Socket>();
         private string realm;
         private AuthenticationMethod authMethod = AuthenticationMethod.None;
 
@@ -95,10 +96,9 @@ namespace DAAP {
                 server.Close();
                 server = null;
             }
-
-            foreach (Socket client in (ArrayList)clients.Clone()) {
-                // do not pass go, do not collect $200...
-                client.Close();
+            
+            foreach (KeyValuePair<IntPtr, Socket> clientEntry in clients.ToArray()) {
+                clientEntry.Value.Close();
             }
         }
 
@@ -344,7 +344,9 @@ namespace DAAP {
             } catch (Exception e) {
                 Console.Error.WriteLine("Error handling request: " + e);
             } finally {
-                clients.Remove(client);
+                Socket removed = null;
+                clients.TryRemove(client.Handle, out removed);
+                System.Diagnostics.Debug.Assert(client == removed);
                 client.Close();
             }
         }
@@ -356,7 +358,8 @@ namespace DAAP {
                         break;
 
                     Socket client = server.Accept();
-                    clients.Add(client);
+                    bool added = clients.TryAdd(client.Handle, client);
+                    System.Diagnostics.Debug.Assert(added);
                     ThreadPool.QueueUserWorkItem(HandleConnection, client);
                 } catch (SocketException) {
                     break;
