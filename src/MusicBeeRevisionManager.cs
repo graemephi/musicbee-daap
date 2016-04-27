@@ -178,9 +178,8 @@ breakOuter:;
                     });
                 }
 
-                if ((receivedNotificationTypes.HasFlag(NotificationType.FileAdded) || receivedNotificationTypes.HasFlag(NotificationType.FileRemoved))
-                 && (added.Length > 0 && removed.Length > 0)) {
-                    musicBeeDatabase.Update(added, removed);
+                if (receivedNotificationTypes.HasFlag(NotificationType.FileAdded) || receivedNotificationTypes.HasFlag(NotificationType.FileRemoved)) {
+                    musicBeeDatabase.Update(added);
                 }
 
                 lastUpdate = DateTime.Now;

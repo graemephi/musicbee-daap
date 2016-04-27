@@ -73,10 +73,10 @@ namespace DAAP
             CacheContentNodes(fieldsInCachedNodes);
         }
 
-        public void Update(string[] added, string[] removed)
+        public void Update(string[] added)
         {
             UpdatePlaylists();
-            tracks.Update(added, removed);
+            tracks.Update(added);
             CacheContentNodes(fieldsInCachedNodes);
         }
 

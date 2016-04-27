@@ -84,12 +84,10 @@ namespace MusicBeePlugin
             }
         }
 
-        public void Update(string[] added, string[] removed)
+        public void Update(string[] added)
         {
             string[] newFiles = { };
             if (mbApi.Library_QueryFilesEx("", ref newFiles)) {
-                Debug.Assert(files.Length + added.Length - removed.Length == newFiles.Length);
-
                 foreach(var file in added) {
                     Add(file);
                 }
