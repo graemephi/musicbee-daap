@@ -49,7 +49,7 @@ namespace MusicBeePlugin
 
         internal static void PreventSleep()
         {
-            SetThreadExecutionState(ExecutionState.Continous | ExecutionState.SystemRequired);
+            SetThreadExecutionState(ExecutionState.Continous | ExecutionState.SystemRequired | ExecutionState.AwayModeRequired);
         }
 
         internal static void AllowSleep()
