@@ -131,15 +131,12 @@ namespace MusicBeePlugin
                     int bassBytesRead = BASS_ChannelGetData_Float(handle, pcmBuffer, count * 2);
 
                     for (int i = 0; i < (bassBytesRead / 4); i++) {
-                        short value = (short)(pcmBuffer[i] * 32767f);
-
-                        ushort uvalue;
-                        unchecked { uvalue = (ushort)value; }
+                        ushort value = (ushort)(pcmBuffer[i] * 32767f);
 
                         buffer[(i * 2) + offset] = (byte)(value);
                         buffer[(i * 2) + offset + 1] = (byte)(value >> 8);
                     }
-
+                    
                     bytesRead += (bassBytesRead / 2);
                 } else {
                     if (position < WAV_HEADER_SIZE) {

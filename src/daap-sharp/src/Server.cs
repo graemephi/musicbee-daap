@@ -191,7 +191,6 @@ namespace DAAP {
                         count += buf.Length;
                     }
                 }
-                int x = 0;
             }
         }
 

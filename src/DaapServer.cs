@@ -233,9 +233,20 @@ namespace MusicBeePlugin
         public void Close(PluginCloseReason reason)
         {
             if (reason != PluginCloseReason.MusicBeeClosing) {
-                revisionManager?.Stop();
-                server?.Stop();
+                StopPlugin();
             }
+        }
+
+        private void StopPlugin()
+        {
+            configForm?.Close();
+            server?.Stop();
+            revisionManager?.Stop();
+            ThreadExecutionState.AllowSleep();
+
+            configForm = null;
+            server = null;
+            revisionManager = null;
         }
 
         // uninstall this plugin - clean up any persisted files
@@ -336,9 +347,7 @@ namespace MusicBeePlugin
                 errors = PluginError.BonjourNotFound;
             } catch (Exception) {
                 // Fatal.
-                configForm?.Close();
-                server?.Stop();
-                revisionManager?.Stop();       
+                StopPlugin(); 
 
                 mbApi.MB_SendNotification(CallbackType.DisablePlugin);
 
