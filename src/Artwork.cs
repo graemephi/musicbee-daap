@@ -5,10 +5,17 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-public class ArtworkData
+public class ArtworkData : IDisposable
 {
     public string type;
     public Stream data;
+
+    public void Dispose()
+    {
+        if (data != null) {
+            data.Dispose();
+        }
+    }
 }
 
 public class Artwork
@@ -74,109 +81,105 @@ public class Artwork
 
     private static ArtworkData GetArtworkFromID3(string filename)
     {
-        try {
-            FileStream data = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
+        ArtworkData result = null;
+
+        using (FileStream data = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (BinaryReader reader = new BinaryReader(data)) {
             byte[] buffer = null;
 
-            using (BinaryReader reader = new BinaryReader(data)) {
-                const int EXTENDED_HEADER = (1 << 6);
-                const int APIC_FRAME_ID = 0x43495041;
-                const int CLEARED_BITS_MASK = 0xE0FF;
-                const int ANSI = 0;
+            const int EXTENDED_HEADER = (1 << 6);
+            const int APIC_FRAME_ID = 0x43495041;
+            const int CLEARED_BITS_MASK = 0xE0FF;
+            const int ANSI = 0;
 
-                if (reader.ReadChar() != 'I') return null;
-                if (reader.ReadChar() != 'D') return null;
-                if (reader.ReadChar() != '3') return null;
+            if (reader.ReadChar() != 'I') return null;
+            if (reader.ReadChar() != 'D') return null;
+            if (reader.ReadChar() != '3') return null;
 
-                // skip version
-                reader.BaseStream.Seek(2, SeekOrigin.Current);
+            // skip version
+            reader.BaseStream.Seek(2, SeekOrigin.Current);
 
-                byte flags = reader.ReadByte();
-                int size = swapEndianness(reader.ReadInt32());
+            byte flags = reader.ReadByte();
+            int size = swapEndianness(reader.ReadInt32());
 
-                if ((flags & EXTENDED_HEADER) != 0) {
-                    int extendedHeaderSize = reader.ReadInt32();
-                    reader.BaseStream.Seek(extendedHeaderSize, SeekOrigin.Current);
+            if ((flags & EXTENDED_HEADER) != 0) {
+                int extendedHeaderSize = reader.ReadInt32();
+                reader.BaseStream.Seek(extendedHeaderSize, SeekOrigin.Current);
+            }
+
+            uint frameId = reader.ReadUInt32();
+            while (frameId != APIC_FRAME_ID && reader.BaseStream.Position < reader.BaseStream.Length) {
+                int chunkSize = swapEndianness(reader.ReadInt32());
+
+                if (chunkSize < 0) {
+                    return null;
                 }
 
-                uint frameId = reader.ReadUInt32();
-                while (frameId != APIC_FRAME_ID && reader.BaseStream.Position < reader.BaseStream.Length) {
-                    int chunkSize = swapEndianness(reader.ReadInt32());
+                ushort frameFlags = reader.ReadUInt16();
 
-                    if (chunkSize < 0) {
-                        return null;
-                    }
-
-                    ushort frameFlags = reader.ReadUInt16();
-
-                    if ((frameFlags & CLEARED_BITS_MASK) != 0) {
-                        return null;
-                    }
-
-                    if (reader.BaseStream.Position + chunkSize > reader.BaseStream.Length) {
-                        return null;
-                    }
-
-                    reader.BaseStream.Seek(chunkSize, SeekOrigin.Current);
-
-                    frameId = reader.ReadUInt32();
+                if ((frameFlags & CLEARED_BITS_MASK) != 0) {
+                    return null;
                 }
 
-                int imageSize = swapEndianness(reader.ReadInt32());
+                if (reader.BaseStream.Position + chunkSize > reader.BaseStream.Length) {
+                    return null;
+                }
 
-                //skip flags
-                reader.BaseStream.Seek(2, SeekOrigin.Current);
+                reader.BaseStream.Seek(chunkSize, SeekOrigin.Current);
 
-                byte encoding = reader.ReadByte();
+                frameId = reader.ReadUInt32();
+            }
 
+            int imageSize = swapEndianness(reader.ReadInt32());
+
+            //skip flags
+            reader.BaseStream.Seek(2, SeekOrigin.Current);
+
+            byte encoding = reader.ReadByte();
+
+            for (byte limit = 0, terminator = 0xFF; limit < 64 && terminator != 0; limit++) {
+                terminator = reader.ReadByte();
+            }
+
+            // skip picture type
+            reader.BaseStream.Seek(1, SeekOrigin.Current);
+
+            if (encoding == ANSI) {
                 for (byte limit = 0, terminator = 0xFF; limit < 64 && terminator != 0; limit++) {
                     terminator = reader.ReadByte();
                 }
-
-                // skip picture type
-                reader.BaseStream.Seek(1, SeekOrigin.Current);
-
-                if (encoding == ANSI) {
-                    for (byte limit = 0, terminator = 0xFF; limit < 64 && terminator != 0; limit++) {
-                        terminator = reader.ReadByte();
-                    }
-                } else {
-                    for (short limit = 0, terminator = -1; limit < 64 && terminator != 0; limit++) {
-                        terminator = reader.ReadInt16();
-                    }
+            } else {
+                for (short limit = 0, terminator = -1; limit < 64 && terminator != 0; limit++) {
+                    terminator = reader.ReadInt16();
                 }
-
-                buffer = reader.ReadBytes(imageSize);
             }
+
+            buffer = reader.ReadBytes(imageSize);
 
             string type = GetImageTypeFromBuffer(buffer);
 
             if (type != null) {
-                ArtworkData result = new ArtworkData
+                result = new ArtworkData
                 {
                     type = type,
                     data = new MemoryStream(buffer)
                 };
-
-                return result;
             } else {
                 ReportFailure(filename, buffer);
             }
-        } catch (Exception) {
-            return null;
         }
 
-        return null;
+        return result;
     }
+    
 
     private static ArtworkData OpenArtworkFile(string file)
     {
         ArtworkData result = null;
+        FileStream data = null;
 
-        FileInfo info = new FileInfo(file);
-
-        if (info.Exists) {
-            FileStream data = info.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+        try {
+            data = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Write);
 
             byte[] bytes = new byte[MAX_MAGIC_LENGTH];
             data.Read(bytes, 0, MAX_MAGIC_LENGTH);
@@ -193,7 +196,13 @@ public class Artwork
             } else {
                 ReportFailure(file, bytes);
             }
-        }
+        } catch {
+            if (data != null) {
+                data.Dispose();
+            }
+
+            result = null;
+        }    
 
         return result;
     }
@@ -219,34 +228,33 @@ public class Artwork
         } else {
             // Sometimes GetArtworkEx fails...
             string directory = Path.GetDirectoryName(file);
-            if (Directory.Exists(directory)) {
-                foreach (var rawPattern in Plugin.artworkPatterns) {
-                    string pattern = rawPattern.Replace("<Filename>", Path.GetFileNameWithoutExtension(file));
 
-                    // ...if there is embedded artwork, GetArtworkEx does not fail
+            foreach (var rawPattern in Plugin.artworkPatterns) {
+                string pattern = rawPattern.Replace("<Filename>", Path.GetFileNameWithoutExtension(file));
+
+                // ...if there is embedded artwork, GetArtworkEx does not fail
 #if false
-                    if (pattern == "Embedded") {
-                        result = GetArtworkFromID3(file);
-                        if (result != null) {
-                            break;
-                        }
-                    } 
-                    else
+                if (pattern == "Embedded") {
+                    result = GetArtworkFromID3(file);
+                    if (result != null) {
+                        break;
+                    }
+                } 
+                else
 #endif
-                    {
-                        var matches = Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories);
+                {
+                    var matches = Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories);
+                    
+                    if (matches.Count() > 10) {
+                        // We've hit some parent directory
+                        continue;
+                    }
 
-                        if (matches.Count() > 10) {
-                            // We've hit some parent directory
-                            continue;
-                        }
-
-                        foreach (var artwork in matches) {
-                            if (AudioStream.IsAudioFile(artwork) == false) {
-                                result = OpenArtworkFile(artwork);
-                                if (result != null) {
-                                    goto done;
-                                }
+                    foreach (var artwork in matches) {
+                        if (AudioStream.IsAudioFile(artwork) == false) {
+                            result = OpenArtworkFile(artwork);
+                            if (result != null) {
+                                goto done;
                             }
                         }
                     }

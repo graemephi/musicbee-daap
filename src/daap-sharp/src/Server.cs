@@ -141,13 +141,13 @@ namespace DAAP {
 
         internal void WriteResponseArtwork(Socket client, string trackFile)
         {
-            ArtworkData data = Artwork.GetArtwork(trackFile);
-
-            if (data == null) {
-                WriteResponse(client, HttpStatusCode.InternalServerError, "no file");
-            } else {
-                string contentType = "image/" + data.type;
-                WriteResponseStream(client, data.data, data.data.Length, 0, contentType);
+            using (ArtworkData data = Artwork.GetArtwork(trackFile)) {
+                if (data == null) {
+                    WriteResponse(client, HttpStatusCode.InternalServerError, "no file");
+                } else {
+                    string contentType = "image/" + data.type;
+                    WriteResponseStream(client, data.data, data.data.Length, 0, contentType);
+                }
             }
         }
 
@@ -191,6 +191,7 @@ namespace DAAP {
                         count += buf.Length;
                     }
                 }
+                int x = 0;
             }
         }
 
