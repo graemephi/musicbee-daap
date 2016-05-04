@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -15,6 +16,9 @@ namespace MusicBeePlugin.src
     {
         Plugin instance; 
         private ushort port;
+        Settings pendingSettings = null;
+        Task saveTask = null;
+        object saveLock = new object { };
         
         public ConfigForm(Plugin instance, Settings settings, PluginError errors)
         {
@@ -170,7 +174,32 @@ namespace MusicBeePlugin.src
                 optimisationPinned = pinOptimisation.Checked
             };
 
+            Save(settings);
+        }
+
+        private void SaveAction(Settings settings)
+        {
             instance.ApplyAndSave(settings);
+
+            lock (saveLock) {
+                saveTask = null;
+
+                if (pendingSettings != null) {
+                    instance.ApplyAndSave(settings);
+                    pendingSettings = null;
+                }
+            }
+        }
+
+        private void Save(Settings settings)
+        {
+            lock (saveLock) {
+                if (saveTask == null) {
+                    saveTask = Task.Run(new Action(() => SaveAction(settings)));
+                } else {
+                    pendingSettings = settings;
+                }
+            }
         }
 
         private void saveButton_Click(object sender, EventArgs e)

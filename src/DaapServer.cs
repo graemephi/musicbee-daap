@@ -81,7 +81,7 @@ namespace MusicBeePlugin
 
         private PluginError errors = PluginError.Initialising;
 
-        ConfigForm configForm;
+        private ConfigForm configForm;
 
         private PluginInfo about = new PluginInfo();
 
@@ -133,7 +133,7 @@ namespace MusicBeePlugin
             return true;
         }
 
-        internal async void ApplyAndSave(Settings newSettings)
+        internal void ApplyAndSave(Settings newSettings)
         {
             bool settingsModified = false;
             bool serverRestartRequired = false;
@@ -174,7 +174,7 @@ namespace MusicBeePlugin
             serverRestartRequired = serverRestartRequired || formatsToTranscodeChanged || errors != PluginError.None;
 
             if (serverRestartRequired) {
-                await RestartServer();
+                RestartServer();
             }
 
             if (settingsModified && errors == PluginError.None) {
@@ -219,14 +219,25 @@ namespace MusicBeePlugin
 
         private void OnDatabaseRequest(object o, DAAP.DatabaseRequestedArgs info)
         {
-            if (info.userAgent != null && (settings.optimisationPinned == false || settings.optimisedMetadata == null)) {
-                settings.optimisedUserAgent = info.userAgent;
-                settings.optimisedMetadata = info.daapMetadata;
+            bool entered = false;
 
-                WriteSettings();
-                db.CacheContentNodes(info.daapMetadata, info.response);
-                RefreshConfigForm();
+            try {
+                Monitor.TryEnter(db, ref entered);
+
+                if (entered && info.userAgent != null && (settings.optimisationPinned == false || settings.optimisedMetadata == null)) {
+                    settings.optimisedUserAgent = info.userAgent;
+                    settings.optimisedMetadata = info.daapMetadata;
+
+                    WriteSettings();
+                    db.CacheContentNodes(info.daapMetadata, info.response);
+                    RefreshConfigForm();
+                }
+            } finally {
+                if (entered) {
+                    Monitor.Exit(db);
+                }
             }
+
         }
 
         // MusicBee is closing the plugin (plugin is being disabled by user or MusicBee is shutting down)
@@ -297,7 +308,6 @@ namespace MusicBeePlugin
                     revisionManager.Notify(MusicBeeRevisionManager.NotificationType.FileChanged);
                     break;
                 case NotificationType.LibrarySwitched:
-                    #pragma warning disable
                     RestartServer();
                     break;
                 default:
@@ -310,9 +320,6 @@ namespace MusicBeePlugin
             errors = PluginError.Initialising;
 
             try {
-                // Initialise bonjour provider on this thread so we can catch the exception
-                Mono.Zeroconf.Providers.IZeroconfProvider provider = Mono.Zeroconf.Providers.ProviderFactory.SelectedProvider;
-
                 server = new DAAP.Server(settings.serverName, revisionManager);
                 server.Port = settings.serverPort;
 
@@ -356,15 +363,12 @@ namespace MusicBeePlugin
             configForm?.SetMessages(errors);
         }
 
-        private async Task<PluginError> RestartServer()
+        private void RestartServer()
         {
-            await Task.Factory.StartNew(() => {
-                server?.Stop();
-                revisionManager?.Reset();
-                InitialiseServer();
-            });
-
-            return errors;
+            server?.Stop();
+            revisionManager?.Reset();
+            ThreadExecutionState.AllowSleep();
+            InitialiseServer();
         }
 
         private static bool BonjourWakeOnDemandEnabled()
