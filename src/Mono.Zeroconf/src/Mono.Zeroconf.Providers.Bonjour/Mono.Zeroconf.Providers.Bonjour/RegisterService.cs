@@ -89,6 +89,8 @@ namespace Mono.Zeroconf.Providers.Bonjour
                 ProcessRegister();
             } catch(ThreadAbortException) {
                 Thread.ResetAbort();
+            } catch (ServiceErrorException) {
+                Dispose();
             }
             
             thread = null;
