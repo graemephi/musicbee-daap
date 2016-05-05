@@ -74,9 +74,7 @@ namespace MusicBeePlugin
 
                 lastNotify = DateTime.Now;
 
-                if ((DateTime.Now - lastUpdate) > timeToWait) {
-                    Monitor.Pulse(worker);
-                }
+                Monitor.Pulse(worker);
             }
         }
 
