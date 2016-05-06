@@ -250,14 +250,16 @@ namespace MusicBeePlugin
 
         private void StopPlugin()
         {
-            configForm?.Close();
-            server?.Stop();
-            revisionManager?.Stop();
-            ThreadExecutionState.AllowSleep();
-
-            configForm = null;
-            server = null;
-            revisionManager = null;
+            try {
+                configForm?.Close();
+                configForm = null;
+                server?.Stop();
+                server = null;
+                revisionManager?.Stop();
+                revisionManager = null;
+            } finally {
+                ThreadExecutionState.AllowSleep();
+            }
         }
 
         // uninstall this plugin - clean up any persisted files
@@ -354,7 +356,7 @@ namespace MusicBeePlugin
                 errors = PluginError.BonjourNotFound;
             } catch (Exception) {
                 // Fatal.
-                StopPlugin(); 
+                StopPlugin();
 
                 mbApi.MB_SendNotification(CallbackType.DisablePlugin);
 
@@ -365,10 +367,14 @@ namespace MusicBeePlugin
 
         private void RestartServer()
         {
-            server?.Stop();
-            revisionManager?.Reset();
             ThreadExecutionState.AllowSleep();
-            InitialiseServer();
+
+            try {
+                server?.Stop();
+                revisionManager?.Reset();
+            } finally {
+                InitialiseServer();
+            }
         }
 
         private static bool BonjourWakeOnDemandEnabled()

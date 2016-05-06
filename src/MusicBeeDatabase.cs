@@ -75,21 +75,28 @@ namespace DAAP
 
         public void Update(string[] added)
         {
-            UpdatePlaylists();
-            tracks.Update(added);
-            CacheContentNodes(fieldsInCachedNodes);
+            bool haveNewPlaylists = UpdatePlaylists();
+            bool haveNewTracks = tracks.Update(added);
+
+            if (haveNewPlaylists || haveNewTracks) {
+                CacheContentNodes(fieldsInCachedNodes);
+            }
         }
 
-        public void UpdatePlaylists()
+        public bool UpdatePlaylists()
         {
+            bool newPlaylistAdded = false;
             mbApi.Playlist_QueryPlaylists();
 
             string playlistUrl;
             while ((playlistUrl = mbApi.Playlist_QueryGetNextPlaylist()) != null) {
                 if (playlists.Find(t => t.Url == playlistUrl) == null) {
                     playlists.Add(new MusicBeePlaylist(playlistUrl));
+                    newPlaylistAdded = true;
                 }
             }
+
+            return newPlaylistAdded;
         }
 
         public int[] GetIdsOfTracks(string[] filenames)

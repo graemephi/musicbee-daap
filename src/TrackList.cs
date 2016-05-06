@@ -51,13 +51,12 @@ namespace MusicBeePlugin
         const int DISC_NO = 16;
         const int DISC_COUNT = 17;
         const int RATING = 18;
-
+        
         private string[] files;
         private Dictionary<string, int> ids = new Dictionary<string, int>();
         private int idCounter = 1;
         private MusicBeeRevisionManager revisionManager;
-
-
+        
         public string[] Files { get { return files; } }
 
         public TrackList()
@@ -65,12 +64,15 @@ namespace MusicBeePlugin
             Reset();
         }
 
-        private void Add(string filename)
+        private bool Add(string filename)
         {
-            int existingId;
-            if (ids.TryGetValue(filename, out existingId) == false) {
+            bool fileIsNew = (ids.ContainsKey(filename) == false);
+
+            if (fileIsNew) {
                 ids.Add(filename, idCounter++);
             }
+
+            return fileIsNew;
         }
 
         public void Reset()
@@ -84,30 +86,43 @@ namespace MusicBeePlugin
             }
         }
 
-        public void Update(string[] added)
+        public bool Update(string[] added)
         {
+            bool haveNewFiles = false;
+
             string[] newFiles = { };
             if (mbApi.Library_QueryFilesEx("", ref newFiles)) {
                 foreach(var file in added) {
-                    Add(file);
+                    haveNewFiles |= Add(file);
                 }
 
                 files = newFiles;
             } else {
                 throw new Exception("Unable to get MusicBee library");
             }
+
+            return haveNewFiles;
         }
 
         public Track FileToTrack(string file, int id = 0)
         {
-            if (id == 0) {
-                id = ids[file];
-            }
-
             Track result = null;
             string[] trackTags = { };
+            bool isNewTrack = false;
+
+            if (id == 0 && ids.TryGetValue(file, out id)) {
+                // file hasn't been assigned an id yet. Either junk has been passed to this function
+                // or a file was added between the last sync delta and the new files list being fetched.
+                // This situation is the price we pay for just having musicbee tell us what files are valid
+                // rather than maintaining a list of our own from the sync deltas.
+                isNewTrack = true;
+            }
 
             if (mbApi.Library_GetFileTags(file, tags, ref trackTags)) {
+                if (isNewTrack) {
+                    Add(file);
+                }
+
                 result = new Track();
 
                 result.Artist = trackTags[ARTIST];
@@ -244,7 +259,7 @@ namespace MusicBeePlugin
             
             foreach(KeyValuePair<string, int> file in ids) {
                 if (file.Value == id) {
-                    result = FileToTrack(file.Key);
+                    result = FileToTrack(file.Key, id);
                     break;
                 }
             }
