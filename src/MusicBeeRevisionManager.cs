@@ -26,12 +26,13 @@ namespace MusicBeePlugin
             FileChanged = 4
         }
 
+        static TimeSpan timeToWait = new TimeSpan(0, 0, 3);
+
         Stack<Revision> revisions = new Stack<Revision>();
         MusicBeeDatabase musicBeeDatabase;
 
         DateTime lastUpdate = DateTime.Now;
         DateTime lastNotify = DateTime.Now;
-        TimeSpan timeToWait = new TimeSpan(0, 0, 1);
         Thread worker;
 
         int numberOfOpenConnections = 0;
