@@ -1,0 +1,9 @@
+In a nutshell--lets you use musicbee as an itunes server.
+
+## Fine Details
+
+The two dependencies, daap-sharp and Mono.Zeroconf, are (musicbee specific) forks, done without care, or attention.
+
+daap-sharp changes include  support for transcoding and album artwork, db response caching, and the removal of GZip dependency and non-server code.
+
+Mono.Zeroconf's plugin system did not play well with musicbee's plugin system, so bonjour support is hardcoded and rather than dynamically loaded.
