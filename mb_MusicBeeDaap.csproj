@@ -9,7 +9,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MusicBeePlugin</RootNamespace>
-    <AssemblyName>mb_MusicBeeDaap_NeedsGZip</AssemblyName>
+    <AssemblyName>mb_MusicBeeDaap</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
@@ -192,13 +192,9 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="src\daap-sharp\ICSharpCode.SharpZipLib.dll" />
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>$(ProjectDir)packages\ILMerge.2.14.1208\tools\ILMerge.exe /out:"$(TargetDir)$(ProjectName).dll" "$(TargetPath)" "$(SolutionDir)\src\daap-sharp\ICSharpCode.SharpZipLib.dll"
-copy /Y "$(TargetDir)$(ProjectName).dll" "C:\Program Files (x86)\MusicBee\Plugins\"</PostBuildEvent>
+    <PostBuildEvent>copy /Y "$(TargetDir)$(ProjectName).dll" "C:\Program Files (x86)\MusicBee\Plugins\"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace MusicBeePlugin
@@ -38,6 +39,21 @@ namespace MusicBeePlugin
                 };
 
                 return result;
+            }
+
+            internal static bool Validate(TranscodeOptions transcode)
+            {
+                bool valid = true;
+
+                Plugin.FileCodec[] distinctFormats = transcode.formats.Distinct().ToArray();
+
+                if (distinctFormats.Length != transcode.formats.Count
+                    || distinctFormats.Length > Enum.GetNames(typeof(Plugin.FileCodec)).Length
+                    || transcode.formats.Exists(format => !Enum.IsDefined(typeof(Plugin.FileCodec), format))) {
+                    valid = false;
+                }
+
+                return valid;
             }
         }
 

@@ -103,7 +103,7 @@ public class Artwork
             int size = swapEndianness(reader.ReadInt32());
 
             if ((flags & EXTENDED_HEADER) != 0) {
-                int extendedHeaderSize = reader.ReadInt32();
+                int extendedHeaderSize = swapEndianness(reader.ReadInt32());
                 reader.BaseStream.Seek(extendedHeaderSize, SeekOrigin.Current);
             }
 

@@ -36,7 +36,6 @@ namespace MusicBeePlugin
         [Flags()]
         enum ExecutionState : uint
         {
-            None = 0,
             AwayModeRequired = 0x00000040,
             Continous = 0x80000000,
             DisplayRequired = 0x00000002,
@@ -47,19 +46,9 @@ namespace MusicBeePlugin
         [DllImport("kernel32.dll")]
         private extern static ExecutionState SetThreadExecutionState(ExecutionState esFlags);
 
-        internal static void PreventSleep()
-        {
-            SetThreadExecutionState(ExecutionState.Continous | ExecutionState.SystemRequired | ExecutionState.AwayModeRequired);
-        }
-
-        internal static void AllowSleep()
-        {
-            SetThreadExecutionState(ExecutionState.Continous);
-        }
-
         internal static void ResetSleepTimer()
         {
-            SetThreadExecutionState(ExecutionState.None);
+            SetThreadExecutionState(ExecutionState.SystemRequired);
         }
     }
 
@@ -201,6 +190,11 @@ namespace MusicBeePlugin
                     XmlSerializer serialiser = new XmlSerializer(typeof(Settings));
                     result = (Settings)serialiser.Deserialize(settingsFile);
                 }
+
+                if (!AudioStream.TranscodeOptions.Validate(result.transcode)) {
+                    AudioStream.TranscodeOptions defaults = AudioStream.TranscodeOptions.WithDefaultTranscodeFormats();
+                    result.transcode.formats = defaults.formats;
+                }
             } catch { }
 
             if (result == null) {
@@ -222,7 +216,7 @@ namespace MusicBeePlugin
             bool entered = false;
 
             try {
-                Monitor.TryEnter(db, ref entered);
+                entered = Monitor.TryEnter(db);
 
                 if (entered && info.userAgent != null && (settings.optimisationPinned == false || settings.optimisedMetadata == null)) {
                     settings.optimisedUserAgent = info.userAgent;
@@ -250,16 +244,12 @@ namespace MusicBeePlugin
 
         private void StopPlugin()
         {
-            try {
-                configForm?.Close();
-                configForm = null;
-                server?.Stop();
-                server = null;
-                revisionManager?.Stop();
-                revisionManager = null;
-            } finally {
-                ThreadExecutionState.AllowSleep();
-            }
+            configForm?.Close();
+            configForm = null;
+            server?.Stop();
+            server = null;
+            revisionManager?.Stop();
+            revisionManager = null;
         }
 
         // uninstall this plugin - clean up any persisted files
@@ -322,7 +312,7 @@ namespace MusicBeePlugin
             errors = PluginError.Initialising;
 
             try {
-                server = new DAAP.Server(settings.serverName, revisionManager);
+                server = new DAAP.Server(settings.serverName, db, revisionManager);
                 server.Port = settings.serverPort;
 
                 server.Collision += (o, args) =>
@@ -337,16 +327,10 @@ namespace MusicBeePlugin
 
                 server.TrackRequested += OnTrackRequest;
                 server.DatabaseRequested += OnDatabaseRequest;
-
-                if (BonjourWakeOnDemandEnabled() == false) {
-                    server.UserLogin += OnLogin;
-                    server.UserLogout += OnLogout;
-                }
-
+                
                 server.UserLogin += revisionManager.OnLogin;
                 server.UserLogout += revisionManager.OnLogout;
                 
-                server.AddDatabase(db);
                 server.Start();
 
                 errors = PluginError.None;
@@ -367,8 +351,6 @@ namespace MusicBeePlugin
 
         private void RestartServer()
         {
-            ThreadExecutionState.AllowSleep();
-
             try {
                 server?.Stop();
                 revisionManager?.Reset();
@@ -377,20 +359,6 @@ namespace MusicBeePlugin
             }
         }
 
-        private static bool BonjourWakeOnDemandEnabled()
-        {
-            bool result = false;
-
-            RegistryKey localMachine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-            RegistryKey powerManagement = localMachine.OpenSubKey("SOFTWARE\\Apple Inc.\\Bonjour\\Power Management");
-
-            if (powerManagement != null) {
-                result = 1.Equals(powerManagement.GetValue("Enabled", 0));
-            }
-            
-            return result;
-        }
-        
         public static string TrimToCharacter(string s, char c)
         {
             int index = 0;
@@ -417,22 +385,11 @@ namespace MusicBeePlugin
             return updated;
         }
 
-        private static void OnLogin(object sender, DAAP.UserArgs args)
-        {
-            ThreadExecutionState.PreventSleep();
-        }
-
-        private static void OnLogout(object sender, DAAP.UserArgs args)
-        {
-            ThreadExecutionState.AllowSleep();
-        }
-
         private static void OnTrackRequest(object sender, DAAP.TrackRequestedArgs args)
         {
             ThreadExecutionState.ResetSleepTimer();
         }
-
-
+        
         // return an array of lyric or artwork provider names this plugin supports
         // the providers will be iterated through one by one and passed to the RetrieveLyrics/ RetrieveArtwork function in order set by the user in the MusicBee Tags(2) preferences screen until a match is found
         public string[] GetProviders()

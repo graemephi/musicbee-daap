@@ -18,22 +18,24 @@
  */
 
 using System;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.IO;
-using System.Threading;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 
 using Mono.Zeroconf;
-using MusicBeePlugin;
-using System.Collections.Concurrent;
 
-namespace DAAP {
+using MusicBeePlugin;
+
+namespace DAAP
+{
 
     internal delegate bool WebHandler(Socket client, string userAgent, string user, string path, NameValueCollection query, int range);
 
@@ -125,7 +127,7 @@ namespace DAAP {
 
             using (BinaryWriter writer = new BinaryWriter(new NetworkStream(client, false))) {
                 writer.Write(Encoding.UTF8.GetBytes(String.Format("HTTP/1.1 {0} {1}\r\n", (int)code, code.ToString())));
-                writer.Write(Encoding.UTF8.GetBytes("DAAP-Server: daap-sharp\r\n"));
+                writer.Write(Encoding.UTF8.GetBytes("DAAP-Server: musicbee\r\n"));
                 writer.Write(Encoding.UTF8.GetBytes("Content-Type: application/x-dmap-tagged\r\n"));
                 writer.Write(Encoding.UTF8.GetBytes(String.Format("Content-Length: {0}\r\n", body.Length)));
                 writer.Write(Encoding.UTF8.GetBytes("\r\n"));
@@ -412,6 +414,7 @@ namespace DAAP {
     public class Server {
 
         internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes (30);
+        private static readonly int databaseCount = 1;
 
         private static Regex dbItemsRegex = new Regex ("/databases/([0-9]*?)/items$");
         private static Regex dbTrackRegex = new Regex ("/databases/([0-9]*?)/items/([0-9]*).*");
@@ -420,7 +423,6 @@ namespace DAAP {
         private static Regex dbExtraDataRegex = new Regex("/databases/([0-9]*?)/items/([0-9]*?)/extra_data/artwork$");
 
         private WebServer ws;
-        private ArrayList databases = new ArrayList ();
         private Dictionary<int, User> sessions = new Dictionary<int, User> ();
         private Random random = new Random ();
         private UInt16 port = 3689;
@@ -432,6 +434,7 @@ namespace DAAP {
 
         private RegisterService zc_service;
         private MusicBeeRevisionManager revmgr;
+        private MusicBeeDatabase musicBeeDb;
 
         private object eglock = new object ();
 
@@ -506,8 +509,9 @@ namespace DAAP {
             set { maxUsers = value; }
         }
 
-        public Server (string name, MusicBeeRevisionManager revisionManager) {
+        public Server (string name, MusicBeeDatabase db, MusicBeeRevisionManager revisionManager) {
             ws = new WebServer (port, OnHandleRequest);
+            musicBeeDb = db;
             revmgr = revisionManager;
             serverInfo.Name = name;
             ws.Realm = name;
@@ -527,15 +531,7 @@ namespace DAAP {
             ws.Stop ();
             UnregisterService ();
         }
-
-        public void AddDatabase (MusicBeeDatabase db) {
-            databases.Add (db);
-        }
-
-        public void RemoveDatabase (MusicBeeDatabase db) {
-            databases.Remove (db);
-        }
-
+        
         public void AddCredential (NetworkCredential cred) {
             ws.AddCredential (cred);
         }
@@ -692,13 +688,12 @@ namespace DAAP {
                 int dbid = Int32.Parse(match.Groups[1].Value);
                 int trackid = Int32.Parse(match.Groups[2].Value);
 
-                MusicBeeDatabase db = (MusicBeeDatabase)databases[0];
-                if (db == null || db.Id != dbid) {
+                if (musicBeeDb.Id != dbid) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid database id");
                     return true;
                 }
 
-                Track track = db.LookupTrackById(trackid);
+                Track track = musicBeeDb.LookupTrackById(trackid);
                 if (track == null) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid track id");
                     return true;
@@ -712,9 +707,8 @@ namespace DAAP {
             } else if (dbItemsRegex.IsMatch(path)) {
                 int dbid = Int32.Parse(dbItemsRegex.Match(path).Groups[1].Value);
                 string daapMeta = query["meta"];
-
-                MusicBeeDatabase curdb = (MusicBeeDatabase)databases[0];
-                if (curdb == null || curdb.Id != dbid) {
+                
+                if (musicBeeDb.Id != dbid) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid database id");
                     return true;
                 }
@@ -725,7 +719,7 @@ namespace DAAP {
                     deletedIds = revmgr.GetDeletedIds(clientRev - delta);
                 }
 
-                byte[] response = curdb.ToTracksNodeBytes(daapMeta, deletedIds);
+                byte[] response = musicBeeDb.ToTracksNodeBytes(daapMeta, deletedIds);
 
                 try {
                     if (DatabaseRequested != null) {
@@ -739,13 +733,12 @@ namespace DAAP {
                 int dbid = Int32.Parse(match.Groups[1].Value);
                 int trackid = Int32.Parse(match.Groups[2].Value);
 
-                MusicBeeDatabase db = (MusicBeeDatabase)databases[0];
-                if (db == null || db.Id != dbid) {
+                if (musicBeeDb.Id != dbid) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid database id");
                     return true;
                 }
 
-                Track track = db.LookupTrackById(trackid);
+                Track track = musicBeeDb.LookupTrackById(trackid);
                 if (track == null) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid track id");
                     return true;
@@ -756,7 +749,7 @@ namespace DAAP {
                         if (TrackRequested != null)
                             TrackRequested(this, new TrackRequestedArgs(username,
                                                                         (client.RemoteEndPoint as IPEndPoint).Address,
-                                                                        db, track));
+                                                                        musicBeeDb, track));
                     } catch { }
 
                     if (track.FileName != null) {
@@ -770,25 +763,23 @@ namespace DAAP {
             } else if (dbContainersRegex.IsMatch(path)) {
                 int dbid = Int32.Parse(dbContainersRegex.Match(path).Groups[1].Value);
 
-                MusicBeeDatabase db = (MusicBeeDatabase)databases[0];
-                if (db == null || db.Id != dbid) {
+                if (musicBeeDb.Id != dbid) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid database id");
                     return true;
                 }
 
-                ws.WriteResponse(client, db.ToPlaylistsNode());
+                ws.WriteResponse(client, musicBeeDb.ToPlaylistsNode());
             } else if (dbContainerItemsRegex.IsMatch(path)) {
                 Match match = dbContainerItemsRegex.Match(path);
                 int dbid = Int32.Parse(match.Groups[1].Value);
                 int plid = Int32.Parse(match.Groups[2].Value);
 
-                MusicBeeDatabase curdb = (MusicBeeDatabase)databases[0];
-                if (curdb == null || curdb.Id != dbid) {
+                if (musicBeeDb.Id != dbid) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid database id");
                     return true;
                 }
 
-                IPlaylist curpl = curdb.LookupPlaylistById(plid);
+                IPlaylist curpl = musicBeeDb.LookupPlaylistById(plid);
                 if (curpl == null) {
                     ws.WriteResponse(client, HttpStatusCode.BadRequest, "invalid playlist id");
                     return true;
@@ -822,19 +813,19 @@ namespace DAAP {
         }
 
         private ContentNode GetServerInfoNode () {
-            return serverInfo.ToNode (databases.Count);
+            return serverInfo.ToNode (databaseCount); // Number of databases
         }
 
         private ContentNode GetDatabasesNode () {
             ArrayList databaseNodes = new ArrayList ();
             
-            databaseNodes.Add(((MusicBeeDatabase)databases[0]).ToDatabaseNode());
+            databaseNodes.Add(musicBeeDb.ToDatabaseNode());
 
             ContentNode node = new ContentNode ("daap.serverdatabases",
                                                 new ContentNode ("dmap.status", 200),
                                                 new ContentNode ("dmap.updatetype", (byte) 0),
-                                                new ContentNode ("dmap.specifiedtotalcount", databases.Count),
-                                                new ContentNode ("dmap.returnedcount", databases.Count),
+                                                new ContentNode ("dmap.specifiedtotalcount", databaseCount),
+                                                new ContentNode ("dmap.returnedcount", databaseCount),
                                                 new ContentNode ("dmap.listing", databaseNodes));
 
             return node;
